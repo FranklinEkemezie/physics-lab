@@ -1,109 +1,6 @@
-/**
- * Geometry helpers used by every procedural model.
- *
- * The lab's apparatus is *built from code* rather than loaded from binary
- * assets. That keeps the repository text-only, makes every dimension
- * inspectable and tweakable, and lets models be parameterised (a 50 cm rule
- * and a 1 m rule are the same builder with a different argument).
- */
+/** Canvas texture painters: scales, dials, labels and glow sprites. */
 
 import * as THREE from 'three';
-
-/** Merge a list of geometries into one buffer geometry (fewer draw calls). */
-export function mergeGeometries(geometries: THREE.BufferGeometry[]): THREE.BufferGeometry {
-  const merged = new THREE.BufferGeometry();
-  if (geometries.length === 0) return merged;
-
-  const positions: number[] = [];
-  const normals: number[] = [];
-  const uvs: number[] = [];
-  const indices: number[] = [];
-  let offset = 0;
-
-  for (const geometry of geometries) {
-    const position = geometry.getAttribute('position') as THREE.BufferAttribute;
-    const normal = geometry.getAttribute('normal') as THREE.BufferAttribute | undefined;
-    const uv = geometry.getAttribute('uv') as THREE.BufferAttribute | undefined;
-    const index = geometry.getIndex();
-
-    for (let i = 0; i < position.count; i += 1) {
-      positions.push(position.getX(i), position.getY(i), position.getZ(i));
-      if (normal) normals.push(normal.getX(i), normal.getY(i), normal.getZ(i));
-      if (uv) uvs.push(uv.getX(i), uv.getY(i));
-    }
-
-    if (index) {
-      for (let i = 0; i < index.count; i += 1) indices.push(index.getX(i) + offset);
-    } else {
-      for (let i = 0; i < position.count; i += 1) indices.push(i + offset);
-    }
-
-    offset += position.count;
-    geometry.dispose();
-  }
-
-  merged.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-  if (normals.length) merged.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
-  if (uvs.length) merged.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
-  merged.setIndex(indices);
-  merged.computeVertexNormals();
-  return merged;
-}
-
-/** A cylinder aligned along the Y axis, positioned/rotated by helper options. */
-export function cylinder(
-  radiusTop: number,
-  radiusBottom: number,
-  height: number,
-  segments = 24,
-): THREE.CylinderGeometry {
-  return new THREE.CylinderGeometry(radiusTop, radiusBottom, height, segments, 1, false);
-}
-
-/**
- * Build a mesh from a geometry + material, with sensible shadow defaults.
- * Every apparatus mesh casts and receives shadows in this lab.
- */
-export function meshOf(
-  geometry: THREE.BufferGeometry,
-  material: THREE.Material,
-  name?: string,
-): THREE.Mesh {
-  const mesh = new THREE.Mesh(geometry, material);
-  mesh.castShadow = true;
-  mesh.receiveShadow = true;
-  if (name) mesh.name = name;
-  return mesh;
-}
-
-/** Slightly rounded box (chamfered look) built from a scaled box + segments. */
-export function roundedBox(width: number, height: number, depth: number, radius = 0.02): THREE.BufferGeometry {
-  const shape = new THREE.Shape();
-  const w = width / 2 - radius;
-  const h = height / 2 - radius;
-
-  shape.moveTo(-w - radius, -h);
-  shape.lineTo(-w - radius, h);
-  shape.quadraticCurveTo(-w, h, -w, h + radius);
-  shape.lineTo(w, h + radius);
-  shape.quadraticCurveTo(w, h, w + radius, h);
-  shape.lineTo(w + radius, -h);
-  shape.quadraticCurveTo(w, -h, w, -h - radius);
-  shape.lineTo(-w, -h - radius);
-  shape.quadraticCurveTo(-w, -h, -w - radius, -h);
-
-  const geometry = new THREE.ExtrudeGeometry(shape, {
-    depth,
-    bevelEnabled: true,
-    bevelSize: radius * 0.5,
-    bevelThickness: radius * 0.5,
-    bevelSegments: 2,
-    curveSegments: 4,
-  });
-  geometry.translate(0, 0, -depth / 2);
-  geometry.computeVertexNormals();
-  return geometry;
-}
 
 export interface ScaleTextureOptions {
   /** Physical width the texture spans, in millimetres. */
@@ -261,7 +158,8 @@ export function makeVerticalScaleTexture(options: ScaleTextureOptions): THREE.Ca
   return texture;
 }
 
-export interface DialTextureOptions {  /** Text printed in the middle of the dial, e.g. "AMMETER". */
+export interface DialTextureOptions {
+  /** Text printed in the middle of the dial, e.g. "AMMETER". */
   label: string;
   /** Full-scale deflection value printed at the right-hand end. */
   fullScale: number;
@@ -458,7 +356,8 @@ export function makeLabelPlane(
   return mesh;
 }
 
-/** Generate a soft radial gradient sprite, handy for glows and bulbs. */export function makeGlowSprite(color: THREE.ColorRepresentation, size = 128): THREE.Sprite {
+/** Generate a soft radial gradient sprite, handy for glows and bulbs. */
+export function makeGlowSprite(color: THREE.ColorRepresentation, size = 128): THREE.Sprite {
   const canvas = document.createElement('canvas');
   canvas.width = size;
   canvas.height = size;
@@ -477,65 +376,4 @@ export function makeLabelPlane(
     new THREE.SpriteMaterial({ map: texture, color, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }),
   );
   return sprite;
-}
-
-/**
- * A thin, taut line of thread between two points.
- * Uses a cylinder so it casts a shadow and reads correctly in 3D.
- */
-export function threadBetween(radius = 0.0028, segments = 8): THREE.Mesh {
-  const geometry = new THREE.CylinderGeometry(radius, radius, 1, segments, 1, true);
-  geometry.translate(0, 0.5, 0); // pivot at the bottom so we can scale/orient
-  const mesh = new THREE.Mesh(geometry);
-  return mesh;
-}
-
-/**
- * Orient + stretch a unit-length "thread" mesh so it spans a → b.
- * The unit thread is 1 m tall and pivots at its base.
- */
-export function stretchThread(mesh: THREE.Mesh, from: THREE.Vector3, to: THREE.Vector3): void {
-  const direction = new THREE.Vector3().subVectors(to, from);
-  const length = direction.length();
-  mesh.position.copy(from);
-  mesh.scale.set(1, Math.max(length, 1e-5), 1);
-  mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), direction.normalize());
-}
-
-/** Build a helix (spring or coil) as a TubeGeometry along a helical curve. */
-export function helixGeometry(
-  radius: number,
-  height: number,
-  turns: number,
-  wireRadius: number,
-  segmentsPerTurn = 24,
-): THREE.TubeGeometry {
-  const points: THREE.Vector3[] = [];
-  const total = Math.max(8, Math.floor(turns * segmentsPerTurn));
-  for (let i = 0; i <= total; i += 1) {
-    const t = i / total;
-    const angle = t * turns * Math.PI * 2;
-    points.push(new THREE.Vector3(Math.cos(angle) * radius, t * height, Math.sin(angle) * radius));
-  }
-  const curve = new THREE.CatmullRomCurve3(points);
-  return new THREE.TubeGeometry(curve, total, wireRadius, 8, false);
-}
-
-/** A flat coil of wire lying in the XZ plane (used for solenoids/inductors). */
-export function flatCoilGeometry(
-  innerRadius: number,
-  outerRadius: number,
-  turns: number,
-  wireRadius: number,
-): THREE.BufferGeometry {
-  const points: THREE.Vector3[] = [];
-  const total = Math.max(16, Math.floor(turns * 32));
-  for (let i = 0; i <= total; i += 1) {
-    const t = i / total;
-    const angle = t * turns * Math.PI * 2;
-    const radius = innerRadius + (outerRadius - innerRadius) * t;
-    points.push(new THREE.Vector3(Math.cos(angle) * radius, 0, Math.sin(angle) * radius));
-  }
-  const curve = new THREE.CatmullRomCurve3(points);
-  return new THREE.TubeGeometry(curve, total, wireRadius, 6, false);
 }
