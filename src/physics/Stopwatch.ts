@@ -120,7 +120,7 @@ export class StopwatchInstrument {
     };
     this.#stop = press;
     this.#running = false;
-    this.#elapsedTrue = this.#applyCalibration(press.registeredTimeS - this.#start.registeredTimeS);
+    this.#elapsedTrue = this.#applyCalibration(Math.max(0, press.registeredTimeS - this.#start.registeredTimeS));
     this.#lastTrueTime = simTimeS;
     return press;
   }
@@ -128,7 +128,9 @@ export class StopwatchInstrument {
   /** Called every simulation step while running, so the display ticks over. */
   tick(simTimeS: number): void {
     if (!this.#running || !this.#start) return;
-    this.#elapsedTrue = this.#applyCalibration(simTimeS - this.#start.registeredTimeS);
+    // The watch's own clock started a reaction-time after the finger pressed,
+    // so it reads zero until then — never a negative time.
+    this.#elapsedTrue = this.#applyCalibration(Math.max(0, simTimeS - this.#start.registeredTimeS));
     this.#lastTrueTime = simTimeS;
   }
 

@@ -49,7 +49,7 @@ import {
   parametersForLocation,
 } from '@/physics/pendulum';
 import type { PendulumState } from '@/physics/pendulum';
-import { createMysteryLocation, EARTH, LOCATIONS } from '@/physics/constants';
+import { createMysteryLocation, EARTH, LOCATIONS, REACTION_MEAN_S } from '@/physics/constants';
 import type { Location } from '@/physics/constants';
 import { linearFit, mean, percentError } from '@/physics/statistics';
 import { viewAzimuth } from '@/physics/measurement';
@@ -292,9 +292,13 @@ export class SimplePendulumExperiment extends BaseExperiment {
 
     // Stopwatch display only redraws when the hundredths change.
     const displayed = stopwatch.elapsed;
-    if (this.#stopwatchView && Math.abs(displayed - this.#lastShownDisplay) >= 0.005) {
+    if (Math.abs(displayed - this.#lastShownDisplay) >= 0.005) {
       this.#lastShownDisplay = displayed;
-      this.#stopwatchView.setDisplay(displayed, { running: stopwatch.running });
+      this.#stopwatchView?.setDisplay(displayed, { running: stopwatch.running });
+      // Keep the panel's large read-out in step with the 3D watch.
+      if (this.#widgets.stopwatchDisplay) {
+        this.#widgets.stopwatchDisplay.textContent = displayed.toFixed(2);
+      }
     }
 
     this.#updateLens(services);
@@ -620,8 +624,7 @@ export class SimplePendulumExperiment extends BaseExperiment {
   // Analysis
   // -------------------------------------------------------------------------
 
-  override analyse(dataset: DataSet): AnalysisResult {
-    const rows = dataset.rows;
+  override analyse(dataset: DataSet): AnalysisResult {    const rows = dataset.rows;
     const lines: string[] = [];
     const tips: string[] = [];
 
@@ -732,10 +735,52 @@ export class SimplePendulumExperiment extends BaseExperiment {
     return { headline, lines, fit, tips };
   }
 
+  /**
+   * Error bars and the theoretical line, so the graph can show the student how
+   * close their data is to `T² = (4π²/g)L`.
+   */
+  graphDecorations(dataset: DataSet): {
+    xErrors?: number[];
+    yErrors?: number[];
+    theory?: { slope: number; intercept: number; label: string };
+  } {
+    // The dominant random error is the operator's reaction time at each press,
+    // so σ_t = √2 · σ_reaction and σ_T = σ_t / n.
+    const sigmaT = (Math.SQRT2 * REACTION_MEAN_S) / 1;
+    const yErrors = dataset.rows.map((row) => {
+      const T = row.values.T;
+      const n = Math.max(1, row.values.n);
+      return 2 * T * (sigmaT / n);
+    });
+    // 1 mm on each height reading; the parallax cancels in the difference.
+    const xErrors = dataset.rows.map(() => 0.001);
+
+    if (this.#location.hidden) return { xErrors, yErrors };
+
+    const gradient = (4 * Math.PI * Math.PI) / this.#location.g;
+    return {
+      xErrors,
+      yErrors,
+      theory: {
+        slope: gradient,
+        intercept: 0,
+        label: `theory (g = ${this.#location.g.toFixed(2)})`,
+      },
+    };
+  }
+
+  /** Reveal the hidden gravity of Planet X. */
+  reveal(): string | null {
+    if (!this.#location.hidden) return null;
+    return (
+      `Planet X: g = ${this.#location.g.toFixed(3)} m/s², ` +
+      `air density ${this.#location.airDensity.toFixed(2)} kg/m³.`
+    );
+  }
+
   // -------------------------------------------------------------------------
   // Status for the HUD
   // -------------------------------------------------------------------------
-
   #timeScale = 1;
 
   #publishStatus(services: LabServices): void {
