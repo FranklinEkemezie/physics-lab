@@ -45,7 +45,7 @@ export function analyseOhmsLaw(rows: readonly TrialRow[]): AnalysisResult {
   const tips: string[] = [];
   if (fit.slope >= 0) {
     tips.push('Your line does not fall as the current rises — check the ammeter and voltmeter are the right way round and the switch is closed.');
-  } else if (fit.r2 < 0.99) {
+  } else if (fit.r2 < 0.96) {
     tips.push('The points are scattered: change the rheostat in even steps and read both meters at the same instant.');
   }
   if (internalOhm > 5) {

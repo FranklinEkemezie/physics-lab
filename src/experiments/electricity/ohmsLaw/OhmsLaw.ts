@@ -41,7 +41,7 @@ import { mountOhmsControls, type OhmsControlsModel, type OhmsSnapshot } from './
 /** Reading scatter on a moving-coil ammeter, in amperes (~1 % of full scale). */
 const SIGMA_CURRENT_A = 0.008;
 /** Reading scatter on a moving-coil voltmeter, in volts. */
-const SIGMA_VOLTAGE_V = 0.045;
+const SIGMA_VOLTAGE_V = 0.035;
 /** Display resolution: the nearest 0.02 A and 0.05 V. */
 const CURRENT_STEP_A = 0.02;
 const VOLTAGE_STEP_V = 0.05;

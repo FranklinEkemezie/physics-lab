@@ -34,18 +34,15 @@ export function analyseRefraction(rows: readonly TrialRow[]): AnalysisResult {
   }
 
   const index = refractiveIndexFromGradient(fit.slope);
+  // The index the student fitted, used only for the critical-angle note below.
   const criticalRad = criticalAngleRad(index);
 
   const lines = [
     `Gradient of sin i against sin r: ${formatWithUncertainty(fit.slope, fit.slopeStdError, '')}, so n = ${formatWithUncertainty(index, fit.slopeStdError, '')}`,
     `Intercept: ${formatWithUncertainty(fit.intercept, fit.interceptStdError, '')} (should be near zero)`,
-    `Critical angle for the block: ${Number.isNaN(criticalRad) ? '—' : `${(criticalRad * (180 / Math.PI)).toFixed(1)}°`}`,
+    `Critical angle inside the glass: ${Number.isNaN(criticalRad) ? '—' : `${(criticalRad * (180 / Math.PI)).toFixed(1)}°`}`,
     `r² = ${fit.r2.toFixed(4)} over ${fit.n} points`,
   ];
-
-  // The largest angle of incidence tried still had its ray getting out?
-  const steepest = rows.reduce((best, row) => (row.values.sinI > best.values.sinI ? row : best), rows[0]);
-  const totalInternal = Number.isNaN(criticalRad) ? false : steepest.values.incidenceDeg > (criticalRad * 180) / Math.PI;
 
   const tips: string[] = [];
   if (Math.abs(fit.intercept) > 0.03) {
@@ -53,9 +50,6 @@ export function analyseRefraction(rows: readonly TrialRow[]): AnalysisResult {
   }
   if (fit.r2 < 0.995) {
     tips.push('The points are scattered: keep the ray box aimed at the same point on the face and read the angle from the normal, not the face.');
-  }
-  if (totalInternal) {
-    tips.push('At the steepest angle the ray could not get in at all — that is past the practical range, so leave it out.');
   }
 
   return {

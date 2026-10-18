@@ -31,7 +31,9 @@ import { analyseRefraction } from './analysis';
 import { mountRefractionControls, type RefractionControlsModel, type RefractionSnapshot } from './controls';
 
 /** Scatter on an angle read from a protractor, in degrees. */
-const SIGMA_ANGLE_DEG = 0.5;
+const SIGMA_ANGLE_DEG = 0.4;
+/** The ray box angle is set, then read off the paper — so it is the better-known of the two. */
+const SIGMA_INCIDENCE_DEG = 0.25;
 /** Angles are read to the nearest degree. */
 const ANGLE_STEP_DEG = 1;
 /** Where the ray box starts, and the range it may be moved over. */
@@ -126,12 +128,13 @@ Because the block's faces are parallel, the ray that emerges is *parallel* to th
   override status(): ExperimentStatus {
     const rawRefractionDeg = this.#refractionDeg();
     const refractionDeg = Number.isNaN(rawRefractionDeg) ? 0 : rawRefractionDeg;
-    const criticalDeg = criticalAngleRad(this.#refractiveIndex) * DEG_PER_RAD;
+    const ratio =
+      refractionDeg === 0 ? Number.NaN : Math.sin(this.#incidenceDeg * RAD_PER_DEG) / Math.sin(refractionDeg * RAD_PER_DEG);
 
     const chips: ExperimentStatus['chips'] = [
       { label: 'i', value: `${this.#incidenceDeg.toFixed(0)}°` },
       { label: 'r', value: `${refractionDeg.toFixed(0)}°` },
-      { label: 'sin i / sin r', value: (Math.sin(this.#incidenceDeg * RAD_PER_DEG) / Math.sin(refractionDeg * RAD_PER_DEG)).toFixed(2) },
+      { label: 'sin i / sin r', value: Number.isNaN(ratio) ? '—' : ratio.toFixed(2) },
     ];
 
     const already = this.#seenAngles().has(this.#incidenceDeg);
@@ -144,15 +147,7 @@ Because the block's faces are parallel, the ray that emerges is *parallel* to th
       hint = 'Read both angles from the normal, then press “Record angles”.';
     }
 
-    const state = this.#services?.data.rows.length ? 'recording' : 'ready';
-    return {
-      state,
-      chips,
-      hint:
-        this.#incidenceDeg > criticalDeg
-          ? `${hint} (Past the critical angle the light cannot get back out of the far face.)`
-          : hint,
-    };
+    return { state: this.#services?.data.rows.length ? 'recording' : 'ready', chips, hint };
   }
 
   override analyse(dataset: DataSet): AnalysisResult {
@@ -160,12 +155,15 @@ Because the block's faces are parallel, the ray that emerges is *parallel* to th
   }
 
   /**
-   * Every point carries a vertical uncertainty of its own: an error of ±δ in an
-   * angle shifts `sin i` by `cos i · δ`, which is largest for small angles.
+   * Every point carries a vertical uncertainty of its own: an error of ±δ in
+   * the angle of incidence shifts `sin i` by `cos i · δ`, which is largest for
+   * the shallow angles.
    */
   graphDecorations(dataset: DataSet): { yErrors: number[] } {
     return {
-      yErrors: dataset.rows.map((row) => Math.abs(Math.cos(row.values.incidenceDeg * RAD_PER_DEG)) * SIGMA_ANGLE_DEG * RAD_PER_DEG),
+      yErrors: dataset.rows.map(
+        (row) => Math.abs(Math.cos(row.values.incidenceDeg * RAD_PER_DEG)) * SIGMA_INCIDENCE_DEG * RAD_PER_DEG,
+      ),
     };
   }
 
@@ -223,8 +221,12 @@ Because the block's faces are parallel, the ray that emerges is *parallel* to th
 
     // Two angles are read off the protractor, each to the nearest degree.
     const trueRefractionDeg = this.#refractionDeg();
-    const incidenceDeg = clampAngle(snap(services.rng.normal(this.#incidenceDeg, SIGMA_ANGLE_DEG), ANGLE_STEP_DEG));
-    const refractionDeg = clampAngle(snap(services.rng.normal(trueRefractionDeg, SIGMA_ANGLE_DEG), ANGLE_STEP_DEG));
+    const incidenceDeg = clampAngle(
+      snap(services.rng.normalClipped(this.#incidenceDeg, SIGMA_INCIDENCE_DEG, 2.5), ANGLE_STEP_DEG),
+    );
+    const refractionDeg = clampAngle(
+      snap(services.rng.normalClipped(trueRefractionDeg, SIGMA_ANGLE_DEG, 2.5), ANGLE_STEP_DEG),
+    );
 
     const sinI = Math.sin(incidenceDeg * RAD_PER_DEG);
     const sinR = Math.sin(refractionDeg * RAD_PER_DEG);

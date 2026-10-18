@@ -439,7 +439,7 @@ export function runChecks(): CheckResult[] {
         voltmeterResistanceOhm: 1000,
       });
       xs.push(Math.max(0, snap(solution.currentA + rng.normalClipped(0, 0.008, 2.5), 0.02)));
-      ys.push(Math.max(0, snap(solution.terminalV + rng.normalClipped(0, 0.045, 2.5), 0.05)));
+      ys.push(Math.max(0, snap(solution.terminalV + rng.normalClipped(0, 0.035, 2.5), 0.05)));
     }
     const fit = linearFit(xs, ys);
     const emf = fit ? emfFromIntercept(fit.intercept) : Number.NaN;
@@ -499,8 +499,8 @@ export function runChecks(): CheckResult[] {
       const incidence = (incidenceDeg * Math.PI) / 180;
       const refractionDeg = (refractionAngle(incidence, 1, trueIndex) * 180) / Math.PI;
       // Both angles are read off a protractor to the nearest degree.
-      const iRead = snap(incidenceDeg + rng.normalClipped(0, 0.5, 2.5), 1);
-      const rRead = snap(refractionDeg + rng.normalClipped(0, 0.5, 2.5), 1);
+      const iRead = snap(incidenceDeg + rng.normalClipped(0, 0.25, 2.5), 1);
+      const rRead = snap(refractionDeg + rng.normalClipped(0, 0.4, 2.5), 1);
       xs.push(Math.sin((rRead * Math.PI) / 180));
       ys.push(Math.sin((iRead * Math.PI) / 180));
     }
