@@ -10,6 +10,7 @@
 import type { Experiment } from './types';
 import type { GroupId } from '@/lab/types';
 import { SimplePendulumExperiment } from './mechanics/SimplePendulum';
+import { HookesLawExperiment } from './mechanics/hookes';
 import { BarMagnetFieldExperiment } from './magnetism/BarMagnetField';
 
 export interface ExperimentInfo {
@@ -42,8 +43,8 @@ export const EXPERIMENTS: readonly ExperimentInfo[] = [
     group: 'mechanics',
     summary: 'Add slotted masses, read the pointer against the rule, plot extension against load.',
     apparatus: ['Retort stand', 'Spring', 'Mass hanger', 'Slotted masses', 'Metre rule'],
-    available: false,
-    note: 'Apparatus and physics models are already built; only the experiment script is missing.',
+    available: true,
+    create: () => new HookesLawExperiment(),
   },
   {
     id: 'ohms-law',

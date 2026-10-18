@@ -84,7 +84,12 @@ export const ELECTRICITY_EQUIPMENT: EquipmentDefinition[] = [
     glyph: '🎛️',
     keywords: ['rheostat', 'variable', 'resistor', 'potentiometer'],
     footprintM: 0.09,
-    build: () => new RheostatModel(20, 0.14).group,
+    build: () => {
+      const model = new RheostatModel(20, 0.14);
+      // Experiments drive the sliding contact through this handle.
+      model.group.userData.rheostatModel = model;
+      return model.group;
+    },
   },
   {
     id: 'knife-switch',
@@ -96,6 +101,7 @@ export const ELECTRICITY_EQUIPMENT: EquipmentDefinition[] = [
     footprintM: 0.05,
     build: () => {
       const model = new KnifeSwitchModel();
+      model.group.userData.switchModel = model;
       return withUpdate(model.group, (dt) => model.update(dt));
     },
   },
@@ -139,6 +145,7 @@ export const ELECTRICITY_EQUIPMENT: EquipmentDefinition[] = [
     footprintM: 0.02,
     build: () => {
       const lamp = new LampModel(2.5, 0.3);
+      lamp.group.userData.lampModel = lamp;
       return lamp.group;
     },
   },

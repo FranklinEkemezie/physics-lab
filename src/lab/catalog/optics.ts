@@ -28,6 +28,8 @@ export const OPTICS_EQUIPMENT: EquipmentDefinition[] = [
     footprintM: 0.08,
     build: () => {
       const model = new RayBoxModel();
+      // Experiments switch the beams on and off through this handle.
+      model.group.userData.rayBoxModel = model;
       return withUpdate(model.group, () => undefined);
     },
   },

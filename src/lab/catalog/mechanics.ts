@@ -165,7 +165,12 @@ export const MECHANICS_EQUIPMENT: EquipmentDefinition[] = [
     glyph: '🪝',
     keywords: ['hanger', 'mass', 'weight'],
     footprintM: 0.03,
-    build: buildMassHanger,
+    build: () => {
+      const hanger = buildMassHanger();
+      // The experiment needs to know how much the hanger itself weighs.
+      hanger.userData.physics = { kind: 'hanger', massKg: 0.05 };
+      return hanger;
+    },
   },
   {
     id: 'mass-10g',
@@ -217,6 +222,7 @@ export const MECHANICS_EQUIPMENT: EquipmentDefinition[] = [
     footprintM: 0.03,
     build: () => {
       const spring = new SpringModel({ naturalLengthM: 0.12, springConstantNm: 25 });
+      spring.group.userData.springModel = spring;
       return spring.group;
     },
   },
@@ -230,6 +236,7 @@ export const MECHANICS_EQUIPMENT: EquipmentDefinition[] = [
     footprintM: 0.03,
     build: () => {
       const spring = new SpringModel({ naturalLengthM: 0.12, springConstantNm: 12 });
+      spring.group.userData.springModel = spring;
       return spring.group;
     },
   },

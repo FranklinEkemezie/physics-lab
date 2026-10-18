@@ -79,7 +79,8 @@ export class SpringModel {
       Materials.paint('#c0392b', 0.4),
     );
     this.#pointer.name = 'Pointer';
-    this.#pointer.position.set(coilRadiusM + 0.019, coilHeight, 0);
+    // The pointer marks the *moving* (lower) end, so it tracks the extension.
+    this.#pointer.position.set(coilRadiusM + 0.019, 0, 0);
     this.group.add(this.#pointer);
 
     const top = new THREE.Object3D();
@@ -117,8 +118,6 @@ export class SpringModel {
 
     this.#sideWire.scale.y = coilHeight / (this.naturalLengthM - 0.028);
     this.#sideWire.position.y = coilHeight / 2;
-
-    this.#pointer.position.y = coilHeight;
 
     const bottom = this.group.getObjectByName('Bottom');
     if (bottom) bottom.position.y = length;
