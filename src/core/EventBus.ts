@@ -16,9 +16,7 @@
 
 export type Listener<T> = (payload: T) => void;
 
-export type EventMap = Record<string, unknown>;
-
-export class EventBus<Events extends EventMap> {
+export class EventBus<Events extends object> {
   readonly #listeners = new Map<keyof Events, Set<(payload: never) => void>>();
 
   /** Subscribe to an event. Returns an unsubscribe function. */

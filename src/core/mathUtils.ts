@@ -61,7 +61,10 @@ export function fmtScientific(value: number, decimals = 3): string {
 
 /**
  * Linear least-squares fit of `y = m·x + c`.
- * Returns `null` when there are fewer than two distinct x values.
+ *
+ * This is the quick version used for live previews. The authoritative fit
+ * used for analysis — which also returns uncertainties — lives in
+ * `src/physics/statistics.ts`.
  */
 export function linearRegression(
   xs: readonly number[],

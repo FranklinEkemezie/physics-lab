@@ -121,7 +121,7 @@ export function buildThread(maxLengthM = 1.2, radiusM = 0.0005): THREE.Group {
 }
 
 /** Convenience wrapper: set a thread group's length in metres. */
-export function setThreadLength(group: THREE.Group, lengthM: number): void {
+export function setThreadLength(group: THREE.Object3D, lengthM: number): void {
   const mesh = group.getObjectByName('Thread') as THREE.Mesh | undefined;
   if (!mesh) return;
   mesh.scale.y = Math.max(lengthM, 1e-4);
@@ -131,7 +131,7 @@ export function setThreadLength(group: THREE.Group, lengthM: number): void {
  * Stretch a thread so it spans two world-space points. Used when the
  * pendulum pivot or the bob is being repositioned.
  */
-export function spanThread(group: THREE.Group, from: THREE.Vector3, to: THREE.Vector3): void {
+export function spanThread(group: THREE.Object3D, from: THREE.Vector3, to: THREE.Vector3): void {
   const mesh = group.getObjectByName('Thread') as THREE.Mesh | undefined;
   if (!mesh) return;
   mesh.scale.x = 1;
