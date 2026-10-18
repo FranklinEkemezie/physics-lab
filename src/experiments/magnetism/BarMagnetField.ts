@@ -611,6 +611,7 @@ export class BarMagnetFieldExperiment extends BaseExperiment {
         title: 'Clear every pencil line',
         onClick: () => {
           rig.clearPencilLines();
+          this.#refreshLive(true);
           services.bus.emit('coach:say', { text: 'Pencil lines cleared — the paper is blank again.' });
         },
       }).root,

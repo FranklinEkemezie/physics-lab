@@ -23,6 +23,7 @@ import { BENCH_HEIGHT } from '@/engine/LabRoom';
 import { Materials } from '@/engine/materials';
 import type { PlottingCompassModel } from '@/engine/models/magnetism';
 import {
+  EARTH_HORIZONTAL_T,
   type DipoleMagnet,
   type PlanarField,
   compassHeadingRad,
@@ -97,7 +98,7 @@ export class MagnetFieldRig {
       momentAm2: options.momentAm2,
       momentAngleRad: MAGNET_RIG.momentAngleRad,
     };
-    this.earth = uniformField(MAGNET_RIG.earthAngleRad, 30e-6);
+    this.earth = uniformField(MAGNET_RIG.earthAngleRad, EARTH_HORIZONTAL_T);
 
     this.#overlays.name = 'MagnetFieldOverlays';
     lab.root.add(this.#overlays);
