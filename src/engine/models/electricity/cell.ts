@@ -7,7 +7,11 @@ import { Materials } from '../../materials';
 import { makeLabelPlane, meshOf } from '../../geometry';
 
 /** A dry cell (Leclanché/dry cell) with terminals and a printed voltage. */
-export function buildDryCell(voltageV = 1.5, options: { label?: string } = {}): THREE.Group {
+export function buildDryCell(
+  voltageV = 1.5,
+  options: { label?: string; showVoltage?: boolean; internalResistanceOhms?: number } = {},
+): THREE.Group {
+  const showVoltage = options.showVoltage ?? true;
   const group = new THREE.Group();
   group.name = 'DryCell';
 
@@ -23,7 +27,7 @@ export function buildDryCell(voltageV = 1.5, options: { label?: string } = {}): 
   group.add(band);
 
   const label = makeLabelPlane({
-    text: `${voltageV.toFixed(1)} V\n${options.label ?? 'DRY CELL'}`,
+    text: showVoltage ? `${voltageV.toFixed(1)} V\n${options.label ?? 'DRY CELL'}` : (options.label ?? 'DRY CELL'),
     widthM: radius * 2.6,
     fontScale: 0.15,
     foreground: '#f3efe4',
@@ -51,7 +55,14 @@ export function buildDryCell(voltageV = 1.5, options: { label?: string } = {}): 
   group.add(positiveTerminal, negativeTerminal);
 
   group.userData.isHandle = true;
-  group.userData.physics = { kind: 'cell', emfV: voltageV, internalResistanceOhms: 0.6 };
-  group.userData.apparatus = { id: 'dry-cell', label: `${voltageV.toFixed(1)} V cell` };
+  group.userData.physics = {
+    kind: 'cell',
+    emfV: voltageV,
+    internalResistanceOhms: options.internalResistanceOhms ?? 0.6,
+  };
+  group.userData.apparatus = {
+    id: 'dry-cell',
+    label: showVoltage ? `${voltageV.toFixed(1)} V cell` : (options.label ?? 'Cell'),
+  };
   return group;
 }

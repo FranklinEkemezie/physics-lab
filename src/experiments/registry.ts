@@ -11,6 +11,7 @@ import type { Experiment } from './types';
 import type { GroupId } from '@/lab/types';
 import { SimplePendulumExperiment } from './mechanics/SimplePendulum';
 import { HookesLawExperiment } from './mechanics/hookes';
+import { OhmsLawExperiment } from './electricity/ohmsLaw';
 import { BarMagnetFieldExperiment } from './magnetism/BarMagnetField';
 
 export interface ExperimentInfo {
@@ -48,12 +49,12 @@ export const EXPERIMENTS: readonly ExperimentInfo[] = [
   },
   {
     id: 'ohms-law',
-    title: "Ohm's law — verify V = IR",
+    title: "Ohm's law — e.m.f. and internal resistance",
     group: 'electricity',
-    summary: 'Vary the rheostat, read the ammeter and voltmeter, plot V against I.',
-    apparatus: ['Dry cell', 'Rheostat', 'Ammeter', 'Voltmeter', 'Connecting leads'],
-    available: false,
-    note: 'The meters already animate; a circuit solver is the next piece to write.',
+    summary: 'Vary the rheostat, read the ammeter and voltmeter, plot V against I to find E and r.',
+    apparatus: ['Dry cell', 'Rheostat', 'Ammeter', 'Voltmeter', 'Switch', 'Connecting leads'],
+    available: true,
+    create: () => new OhmsLawExperiment(),
   },
   {
     id: 'refraction',
