@@ -1,5 +1,5 @@
 /**
- * Physics self-checks for the pendulum practical.
+ * Physics self-checks for every practical in the lab.
  *
  * This is a *development* harness, not part of the shipped app: it imports the
  * pure simulation modules (no Three.js, no DOM) and asserts that they behave
@@ -7,7 +7,9 @@
  *
  * The checks deliberately compare the *integrated* motion against the textbook
  * formulas, so a regression in the ODE, the constants or the statistics shows
- * up immediately.
+ * up immediately. The last group simulates an entire practical — noise, rounded
+ * readings and all — and asserts that the graph still recovers the hidden
+ * answer within a sensible tolerance.
  */
 
 import {
@@ -35,7 +37,24 @@ import {
   uniformField,
 } from '@/physics/electromagnetism';
 import type { DipoleMagnet } from '@/physics/electromagnetism';
-import { Rng, traceStreamline } from '@/core/math';
+import { Rng, snap, traceStreamline } from '@/core/math';
+import { realExtensionM, stiffnessFromGradient, type Spring } from '@/physics/mechanics';
+import {
+  emfFromIntercept,
+  internalResistanceFromGradient,
+  parallelResistanceOhm,
+  powerW,
+  seriesResistanceOhm,
+  solveLoadedCircuit,
+  terminalPotentialV,
+  type Cell,
+} from '@/physics/electromagnetism';
+import {
+  criticalAngleRad,
+  refractionAngle,
+  refractiveIndexFromGradient,
+  traceBlockRay,
+} from '@/physics/optics';
 
 export interface CheckResult {
   name: string;
@@ -317,6 +336,193 @@ export function runChecks(): CheckResult[] {
       'the field-line tracer stays inside the paper and steps evenly',
       points.length > 10 && inside && maxStep < 0.0051,
       `${points.length} points, largest step ${(maxStep * 1000).toFixed(2)} mm`,
+    );
+  }
+
+  // -------------------------------------------------------------------------
+  // Hooke's law practical
+  // -------------------------------------------------------------------------
+
+  // 14. A spring must be linear up to its elastic limit, and yield past it.
+  {
+    const spring: Spring = { stiffnessNm: 26, naturalLengthM: 0.12, elasticLimitN: 3.6 };
+    const x1 = realExtensionM(spring, 1);
+    const x2 = realExtensionM(spring, 2);
+    const linear = Math.abs(x2 - 2 * x1) < 1e-12;
+
+    const overloadN = spring.elasticLimitN + 1;
+    const past = realExtensionM(spring, overloadN);
+    const yields = past > overloadN / spring.stiffnessNm + 1e-9;
+    add(
+      'a spring obeys F = kx up to its elastic limit, then yields',
+      linear && yields,
+      `x(1 N) = ${(x1 * 1000).toFixed(2)} mm, x(2 N) = ${(x2 * 1000).toFixed(2)} mm, x(${overloadN} N) = ${(past * 1000).toFixed(2)} mm`,
+    );
+  }
+
+  // 15. A realistic student's extension–load graph must recover k.
+  {
+    const rng = new Rng(4242);
+    const trueStiffness = 27.5;
+    const spring: Spring = { stiffnessNm: trueStiffness, naturalLengthM: 0.12, elasticLimitN: 4.5 };
+    const loads = [0.2, 0.4, 0.6, 0.8, 1, 1.2];
+    const xs: number[] = [];
+    const ys: number[] = [];
+    for (const load of loads) {
+      // Two pointer readings, each good to ±0.5 mm, so the extension carries √2 of it.
+      const reading = realExtensionM(spring, load) + rng.normalClipped(0, Math.SQRT2 * 0.0005, 2.5);
+      xs.push(load);
+      ys.push(Math.max(0, snap(reading, 0.001)));
+    }
+    const fit = linearFit(xs, ys);
+    const recovered = fit ? stiffnessFromGradient(fit.slope) : Number.NaN;
+    const error = Math.abs(recovered - trueStiffness) / trueStiffness;
+    add(
+      "a student's x–F graph recovers k within 5 %",
+      fit !== null && error < 0.05,
+      fit
+        ? `k = ${recovered.toFixed(2)} N/m vs true ${trueStiffness} (${(error * 100).toFixed(1)} %), r² = ${fit.r2.toFixed(4)}`
+        : 'no fit produced',
+    );
+  }
+
+  // -------------------------------------------------------------------------
+  // Ohm's law / e.m.f. practical
+  // -------------------------------------------------------------------------
+
+  // 16. The loaded circuit must satisfy both V = IR and the cell equation.
+  {
+    const cell: Cell = { emfV: 2.2, internalResistanceOhm: 2.5 };
+    const series = seriesResistanceOhm(6, 0.5); // rheostat + ammeter
+    const solution = solveLoadedCircuit({
+      cell,
+      seriesResistanceOhm: series,
+      voltmeterResistanceOhm: Number.POSITIVE_INFINITY,
+    });
+    const fromCell = terminalPotentialV(cell, solution.sourceCurrentA);
+    add(
+      'the loaded circuit obeys V = IR and V = E − Ir at once',
+      Math.abs(solution.terminalV - solution.currentA * series) < 1e-12 &&
+        Math.abs(solution.terminalV - fromCell) < 1e-12 &&
+        Math.abs(solution.sourceCurrentA - solution.currentA) < 1e-12,
+      `I = ${solution.currentA.toFixed(4)} A, V = ${solution.terminalV.toFixed(4)} V, P(rheostat) = ${powerW(solution.currentA, 6).toFixed(3)} W`,
+    );
+  }
+
+  // 17. A real voltmeter is not an open circuit: it shunts current and reads low.
+  {
+    const cell: Cell = { emfV: 2.2, internalResistanceOhm: 2.5 };
+    const ideal = solveLoadedCircuit({ cell, seriesResistanceOhm: 6.5, voltmeterResistanceOhm: Number.POSITIVE_INFINITY });
+    const real = solveLoadedCircuit({ cell, seriesResistanceOhm: 6.5, voltmeterResistanceOhm: 1000 });
+    const external = parallelResistanceOhm(6.5, 1000);
+    add(
+      'a 1000 Ω voltmeter shunts a little current and reads a hair low',
+      real.terminalV < ideal.terminalV &&
+        real.voltmeterCurrentA > 0 &&
+        ideal.terminalV - real.terminalV < 0.005 &&
+        external < 6.5,
+      `V ideal ${ideal.terminalV.toFixed(4)} V vs real ${real.terminalV.toFixed(4)} V, shunt current ${(real.voltmeterCurrentA * 1000).toFixed(3)} mA`,
+    );
+  }
+
+  // 18. A realistic student's V–I graph must recover both E and r.
+  {
+    const rng = new Rng(99);
+    const cell: Cell = { emfV: 2.15, internalResistanceOhm: 2.2 };
+    const settings = [0.5, 1.5, 3, 5, 8, 12, 18];
+    const xs: number[] = [];
+    const ys: number[] = [];
+    for (const rheostat of settings) {
+      const solution = solveLoadedCircuit({
+        cell,
+        seriesResistanceOhm: seriesResistanceOhm(rheostat, 0.5),
+        voltmeterResistanceOhm: 1000,
+      });
+      xs.push(Math.max(0, snap(solution.currentA + rng.normalClipped(0, 0.008, 2.5), 0.02)));
+      ys.push(Math.max(0, snap(solution.terminalV + rng.normalClipped(0, 0.045, 2.5), 0.05)));
+    }
+    const fit = linearFit(xs, ys);
+    const emf = fit ? emfFromIntercept(fit.intercept) : Number.NaN;
+    const internal = fit ? internalResistanceFromGradient(fit.slope) : Number.NaN;
+    const emfError = Math.abs(emf - cell.emfV) / cell.emfV;
+    const internalError = Math.abs(internal - cell.internalResistanceOhm) / cell.internalResistanceOhm;
+    add(
+      "a student's V–I graph recovers E and r within 10 %",
+      fit !== null && emfError < 0.1 && internalError < 0.1,
+      fit
+        ? `E = ${emf.toFixed(3)} V (true ${cell.emfV}), r = ${internal.toFixed(3)} Ω (true ${cell.internalResistanceOhm}), r² = ${fit.r2.toFixed(4)}`
+        : 'no fit produced',
+    );
+  }
+
+  // -------------------------------------------------------------------------
+  // Refraction practical
+  // -------------------------------------------------------------------------
+
+  // 19. The traced ray must obey Snell's law, and the emergent ray must be
+  //     parallel to the incident ray with the textbook lateral shift.
+  {
+    const n = 1.52;
+    const thickness = 0.06;
+    let worstSnell = 0;
+    let worstShift = 0;
+    let onFarFace = true;
+    for (const incidenceDeg of [10, 25, 40, 55, 70, 80]) {
+      const incidence = (incidenceDeg * Math.PI) / 180;
+      const path = traceBlockRay({
+        incidenceRad: incidence,
+        refractiveIndex: n,
+        thicknessM: thickness,
+        entry: { x: 0, z: thickness / 2 },
+      });
+      worstSnell = Math.max(worstSnell, Math.abs(Math.sin(incidence) - n * Math.sin(path.refractionRad)));
+      const textbook = (thickness * Math.sin(incidence - path.refractionRad)) / Math.cos(path.refractionRad);
+      worstShift = Math.max(worstShift, Math.abs(textbook - path.displacementM));
+      if (Math.abs(path.exit.z - -thickness / 2) > 1e-12) onFarFace = false;
+      // The refracted ray must be shallower than the incident ray going into glass.
+      if (!(path.refractionRad < incidence)) onFarFace = false;
+    }
+    add(
+      'the ray through the block obeys Snell, exits on the far face, and is shifted sideways',
+      worstSnell < 1e-12 && worstShift < 1e-12 && onFarFace,
+      `worst |sin i − n sin r| = ${worstSnell.toExponential(1)}, worst shift error = ${worstShift.toExponential(1)}`,
+    );
+  }
+
+  // 20. A realistic student's sin i–sin r graph must recover n.
+  {
+    const rng = new Rng(7);
+    const trueIndex = 1.52;
+    const xs: number[] = [];
+    const ys: number[] = [];
+    for (const incidenceDeg of [15, 25, 35, 45, 55, 65, 75]) {
+      const incidence = (incidenceDeg * Math.PI) / 180;
+      const refractionDeg = (refractionAngle(incidence, 1, trueIndex) * 180) / Math.PI;
+      // Both angles are read off a protractor to the nearest degree.
+      const iRead = snap(incidenceDeg + rng.normalClipped(0, 0.5, 2.5), 1);
+      const rRead = snap(refractionDeg + rng.normalClipped(0, 0.5, 2.5), 1);
+      xs.push(Math.sin((rRead * Math.PI) / 180));
+      ys.push(Math.sin((iRead * Math.PI) / 180));
+    }
+    const fit = linearFit(xs, ys);
+    const recovered = fit ? refractiveIndexFromGradient(fit.slope) : Number.NaN;
+    const error = Math.abs(recovered - trueIndex) / trueIndex;
+    add(
+      "a student's sin i–sin r graph recovers n within 4 %",
+      fit !== null && error < 0.04,
+      fit
+        ? `n = ${recovered.toFixed(3)} vs true ${trueIndex} (${(error * 100).toFixed(1)} %), r² = ${fit.r2.toFixed(4)}`
+        : 'no fit produced',
+    );
+  }
+
+  // 21. The critical angle of ordinary glass must be the textbook 41.8°.
+  {
+    const criticalDeg = (criticalAngleRad(1.5) * 180) / Math.PI;
+    add(
+      'the critical angle of glass (n = 1.5) is about 41.8°',
+      Math.abs(criticalDeg - 41.81) < 0.05,
+      `c = ${criticalDeg.toFixed(2)}°`,
     );
   }
 

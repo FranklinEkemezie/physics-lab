@@ -63,9 +63,15 @@ export function springReadingM(spring: Spring, loadN: number): SpringReading {
   };
 }
 
-/** Stiffness recovered from the gradient of a load-versus-extension graph. */
-export function stiffnessFromGradient(gradientNmPerM: number): number {
-  return gradientNmPerM;
+/**
+ * Stiffness recovered from the gradient of a graph of **extension against
+ * load** (x on the y-axis, F on the x-axis).
+ *
+ * That line rises by `1/k` for every newton added, so the stiffness is the
+ * reciprocal of its gradient: `k = 1/gradient`.
+ */
+export function stiffnessFromGradient(gradientMperN: number): number {
+  return gradientMperN === 0 ? Number.NaN : 1 / gradientMperN;
 }
 
 /** Elastic potential energy stored in a spring: `E = ½kx²`. */

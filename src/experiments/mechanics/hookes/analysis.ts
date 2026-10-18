@@ -8,6 +8,7 @@
 
 import { linearFit } from '@/core/math';
 import { fmt, formatWithUncertainty } from '@/core/format';
+import { stiffnessFromGradient } from '@/physics/mechanics';
 import type { AnalysisResult, TrialRow } from '../../types';
 
 export interface HookesTruth {
@@ -47,7 +48,7 @@ export function analyseHookesLaw(rows: readonly TrialRow[], truth: HookesTruth):
     };
   }
 
-  const stiffness = 1 / fit.slope;
+  const stiffness = stiffnessFromGradient(fit.slope);
   const stiffnessError = stiffness * (fit.slopeStdError / fit.slope);
 
   // Readings taken past the elastic limit bend the graph; a good candidate
@@ -70,7 +71,7 @@ export function analyseHookesLaw(rows: readonly TrialRow[], truth: HookesTruth):
       elasticRows.map((row) => row.values.extensionM),
     );
     if (inner && inner.slope > 0) {
-      const k = 1 / inner.slope;
+      const k = stiffnessFromGradient(inner.slope);
       lines.push(
         `Elastic points only (${elasticRows.length} of ${rows.length}): k = ${formatWithUncertainty(
           k,

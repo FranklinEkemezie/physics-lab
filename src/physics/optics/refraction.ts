@@ -14,6 +14,8 @@
  * that suddenly refuse to appear.
  */
 
+import type { Point2D } from '@/core/math';
+
 /** Refractive index from a pair of angles: `n = sin i / sin r`. */
 export function refractiveIndexFromAngles(incidenceRad: number, refractionRad: number): number {
   const sinR = Math.sin(refractionRad);
@@ -64,4 +66,53 @@ export function speedInMedium(vacuumSpeedMps: number, n: number): number {
 /** Refractive index recovered from the gradient of a `sin i` vs `sin r` graph. */
 export function refractiveIndexFromGradient(gradient: number): number {
   return gradient;
+}
+
+/**
+ * The path of a ray through a rectangular block, in the plane of the bench.
+ *
+ * The ray strikes the front face at `entry`, crosses `thicknessM` of glass and
+ * leaves the back face **parallel to the way it came in** — that is the
+ * give-away that the two surfaces are parallel — but shifted sideways. Joining
+ * the incident and emergent rays with a straight line through the block and
+ * measuring its angle to the normal is how an optical-pins experiment finds the
+ * refracted ray without being able to see inside the glass.
+ */
+export interface BlockRayPath {
+  /** Where the ray enters at the front face (bench coordinates). */
+  entry: Point2D;
+  /** Where the ray leaves at the back face (bench coordinates). */
+  exit: Point2D;
+  /** Angle of refraction inside the glass, in radians (`NaN` if it cannot enter). */
+  refractionRad: number;
+  /** Sideways shift of the emergent ray from the incident ray, in metres. */
+  displacementM: number;
+}
+
+export interface BlockRayOptions {
+  /** Angle of incidence in the surrounding medium, in radians. */
+  incidenceRad: number;
+  /** Refractive index of the block. */
+  refractiveIndex: number;
+  /** Distance the ray travels through the glass, in metres. */
+  thicknessM: number;
+  /** Where on the front face the ray strikes. */
+  entry: Point2D;
+}
+
+/** Trace a ray through a rectangular glass block (air on both sides). */
+export function traceBlockRay(options: BlockRayOptions): BlockRayPath {
+  const { incidenceRad, refractiveIndex, thicknessM, entry } = options;
+  const refractionRad = refractionAngle(incidenceRad, 1, refractiveIndex);
+
+  // The ray travels away from the front face, so the back face lies at −thickness.
+  const exit: Point2D = Number.isNaN(refractionRad)
+    ? { x: entry.x, z: entry.z - thicknessM }
+    : { x: entry.x + thicknessM * Math.tan(refractionRad), z: entry.z - thicknessM };
+
+  const displacementM = Number.isNaN(refractionRad)
+    ? 0
+    : (thicknessM * Math.sin(incidenceRad - refractionRad)) / Math.cos(refractionRad);
+
+  return { entry, exit, refractionRad, displacementM };
 }

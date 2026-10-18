@@ -12,6 +12,7 @@ import type { GroupId } from '@/lab/types';
 import { SimplePendulumExperiment } from './mechanics/SimplePendulum';
 import { HookesLawExperiment } from './mechanics/hookes';
 import { OhmsLawExperiment } from './electricity/ohmsLaw';
+import { RefractionExperiment } from './optics/refraction';
 import { BarMagnetFieldExperiment } from './magnetism/BarMagnetField';
 
 export interface ExperimentInfo {
@@ -58,12 +59,12 @@ export const EXPERIMENTS: readonly ExperimentInfo[] = [
   },
   {
     id: 'refraction',
-    title: 'Refraction through a glass block',
+    title: 'Refraction — the refractive index of a glass block',
     group: 'optics',
-    summary: 'Trace rays through the block and measure the angle of refraction for several angles.',
+    summary: 'Trace rays through the block, measure i and r, and plot sin i against sin r to find n.',
     apparatus: ['Ray box', 'Glass block', 'Protractor', 'Plain paper'],
-    available: false,
-    note: 'Needs a ray-tracing renderer for the beams.',
+    available: true,
+    create: () => new RefractionExperiment(),
   },
   {
     id: 'magnetic-field',

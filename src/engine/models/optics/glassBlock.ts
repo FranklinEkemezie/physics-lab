@@ -12,8 +12,24 @@ import { meshOf } from '../../geometry';
  *
  * <b>Anchors:</b> `FaceFront`, `FaceBack`.
  */
-export function buildGlassBlock(options: { lengthM?: number; widthM?: number; heightM?: number; refractiveIndex?: number } = {}): THREE.Group {
-  const { lengthM = 0.1, widthM = 0.06, heightM = 0.02, refractiveIndex = 1.5 } = options;
+export function buildGlassBlock(options: {
+  lengthM?: number;
+  widthM?: number;
+  heightM?: number;
+  refractiveIndex?: number;
+  /** Name shown to the student. Defaults to "Glass block". */
+  label?: string;
+  /** Set false to keep the refractive index off the label (it is a hidden value). */
+  showIndex?: boolean;
+} = {}): THREE.Group {
+  const {
+    lengthM = 0.1,
+    widthM = 0.06,
+    heightM = 0.02,
+    refractiveIndex = 1.5,
+    label = 'Glass block',
+    showIndex = true,
+  } = options;
   const group = new THREE.Group();
   group.name = 'GlassBlock';
 
@@ -33,7 +49,10 @@ export function buildGlassBlock(options: { lengthM?: number; widthM?: number; he
   back.position.set(0, heightM / 2, -widthM / 2);
   group.add(front, back);
 
-  group.userData.apparatus = { id: 'glass-block', label: `Glass block (n = ${refractiveIndex.toFixed(2)})` };
+  group.userData.apparatus = {
+    id: 'glass-block',
+    label: showIndex ? `${label} (n = ${refractiveIndex.toFixed(2)})` : label,
+  };
   group.userData.optics = { refractiveIndex, lengthM, widthM, heightM, kind: 'glass-block' };
   group.userData.isHandle = true;
   return group;
