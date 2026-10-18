@@ -168,6 +168,22 @@ export interface Experiment {
 
   /** Analyse recorded data. Never throws: returns tips instead. */
   analyse(dataset: DataSet): AnalysisResult;
+
+  /**
+   * Optional extra information for the graph: per-row error bars and a
+   * theoretical line to compare against. Generic experiments can omit it.
+   */
+  graphDecorations?(dataset: DataSet): {
+    xErrors?: number[];
+    yErrors?: number[];
+    theory?: { slope: number; intercept: number; label: string };
+  };
+
+  /**
+   * Optional: reveal values deliberately hidden from the student (used by the
+   * "mystery planet" mode, where g must be measured rather than known).
+   */
+  reveal?(): string | null;
   /** Tear down listeners and apparatus. */
   dispose(services: LabServices): void;
 
