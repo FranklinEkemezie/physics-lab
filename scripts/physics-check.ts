@@ -21,6 +21,21 @@ import type { PendulumParameters } from '@/physics/pendulum';
 import { linearFit } from '@/physics/statistics';
 import { StopwatchInstrument } from '@/physics/Stopwatch';
 import { createMysteryLocation, EARTH, REACTION_MEAN_S } from '@/physics/constants';
+import {
+  EARTH_HORIZONTAL_T,
+  MU0_OVER_4PI,
+  dipoleFieldAt,
+  fieldMagnitude,
+  gradientFor,
+  halfFieldDistanceM,
+  momentFromGradient,
+  momentVector,
+  theoreticalDeflectionRad,
+  totalFieldAt,
+  traceFieldLine,
+  uniformField,
+} from '@/physics/magnetism';
+import type { DipoleMagnet } from '@/physics/magnetism';
 import { Rng } from '@/core/random';
 
 export interface CheckResult {
@@ -193,6 +208,118 @@ export function runChecks(): CheckResult[] {
     REACTION_MEAN_S > 0.15 && REACTION_MEAN_S < 0.3,
     `REACTION_MEAN_S = ${REACTION_MEAN_S} s`,
   );
+
+  // -------------------------------------------------------------------------
+  // Bar-magnet field practical
+  // -------------------------------------------------------------------------
+
+  // The magnet used throughout the checks: moment across the bench (+z), the
+  // same arrangement the practical uses.
+  const magnet: DipoleMagnet = { x: 0, z: 0, momentAm2: 1.2, momentAngleRad: Math.PI / 2 };
+  const earth = uniformField(0, EARTH_HORIZONTAL_T);
+
+  // 9. On the equatorial line the dipole field is μ₀m/4πr³ and points opposite
+  //    the moment (perpendicular to it, as the theory requires).
+  {
+    const distance = 0.25;
+    const field = dipoleFieldAt(distance, 0, magnet);
+    const expected = (MU0_OVER_4PI * magnet.momentAm2) / distance ** 3;
+    const measured = fieldMagnitude(field);
+    const moment = momentVector(magnet);
+    const dot = field.x * moment.x + field.z * moment.z;
+    add(
+      'equatorial dipole field is μ₀m/4πd³ and perpendicular to the moment',
+      Math.abs(measured - expected) / expected < 1e-9 && dot < 0,
+      `|B| = ${measured.toExponential(4)} T vs ${expected.toExponential(4)} T, m·B = ${dot.toExponential(2)}`,
+    );
+  }
+
+  // 10. The needle deflection on the equatorial line must obey tan θ = G/d³.
+  {
+    let worst = 0;
+    for (const distance of [0.12, 0.18, 0.25, 0.32, 0.4, 0.45]) {
+      const field = totalFieldAt(distance, 0, magnet, earth);
+      const measured = Math.abs(Math.tan(Math.atan2(field.z, field.x)));
+      const predicted = gradientFor(magnet) / distance ** 3;
+      worst = Math.max(worst, Math.abs(measured - predicted));
+    }
+    add(
+      'tan θ follows the inverse-cube law on the equatorial line',
+      worst < 1e-9,
+      `worst deviation over 12–45 cm: ${worst.toExponential(2)}`,
+    );
+  }
+
+  // 11. A realistic student's graph must recover the magnet's moment.
+  {
+    const rng = new Rng(2026);
+    const distances = [0.12, 0.15, 0.18, 0.22, 0.26, 0.31, 0.37, 0.44];
+    const xs: number[] = [];
+    const ys: number[] = [];
+    for (const trueDistance of distances) {
+      // The student reads the scale to ±0.5 mm and the needle to ±1° (half a
+      // graduation, each way).
+      const dRead = trueDistance + rng.normalClipped(0, 0.0005, 2.5);
+      const thetaTrue = theoreticalDeflectionRad(trueDistance, magnet);
+      const thetaRead = (thetaTrue + (rng.normalClipped(0, Math.PI / 180, 2.5))) * (180 / Math.PI);
+      const thetaRad = thetaRead * (Math.PI / 180);
+      xs.push(1 / dRead ** 3);
+      ys.push(Math.tan(thetaRad));
+    }
+    const fit = linearFit(xs, ys);
+    const recovered = fit ? momentFromGradient(fit.slope) : Number.NaN;
+    const error = Math.abs(recovered - magnet.momentAm2) / magnet.momentAm2;
+    add(
+      "a student's tan θ–1/d³ graph recovers the moment within 10 %",
+      fit !== null && error < 0.1,
+      fit
+        ? `m = ${recovered.toFixed(3)} A·m² vs true ${magnet.momentAm2} (${(error * 100).toFixed(1)} %), r² = ${fit.r2.toFixed(4)}`
+        : 'no fit produced',
+    );
+  }
+
+  // 12. Where the magnet's field equals the Earth's the needle sits at 45°.
+  {
+    const half = halfFieldDistanceM(magnet);
+    let worst = 0;
+    for (const sign of [-1, 1] as const) {
+      const field = totalFieldAt(sign * half, 0, magnet, earth);
+      const deflectionDeg = Math.abs(Math.atan2(field.z, field.x)) * (180 / Math.PI);
+      worst = Math.max(worst, Math.abs(deflectionDeg - 45));
+    }
+    add(
+      'the needle reaches 45° where the magnet’s field equals the Earth’s',
+      worst < 0.02,
+      `deflection ${(45 + worst).toFixed(3)}° at d = ${(half * 100).toFixed(2)} cm`,
+    );
+  }
+
+  // 13. The streamline tracer must advance evenly and stay inside its box.
+  {
+    const bounds = { minX: -0.5, maxX: 0.5, minZ: -0.2, maxZ: 0.2 };
+    const points = traceFieldLine((x, z) => totalFieldAt(x, z, magnet, earth), { x: 0.06, z: 0.02 }, {
+      stepM: 0.005,
+      bounds,
+      stop: (x, z) => Math.hypot(x, z) < 0.03,
+    });
+    let inside = true;
+    let maxStep = 0;
+    for (let i = 0; i < points.length; i += 1) {
+      const point = points[i];
+      if (point.x < bounds.minX || point.x > bounds.maxX || point.z < bounds.minZ || point.z > bounds.maxZ) {
+        inside = false;
+      }
+      if (i > 0) {
+        const previous = points[i - 1];
+        maxStep = Math.max(maxStep, Math.hypot(point.x - previous.x, point.z - previous.z));
+      }
+    }
+    add(
+      'the field-line tracer stays inside the paper and steps evenly',
+      points.length > 10 && inside && maxStep < 0.0051,
+      `${points.length} points, largest step ${(maxStep * 1000).toFixed(2)} mm`,
+    );
+  }
 
   return results;
 }
