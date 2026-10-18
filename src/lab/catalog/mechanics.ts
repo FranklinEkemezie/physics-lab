@@ -1,0 +1,246 @@
+/**
+ * Mechanics equipment definitions.
+ */
+
+import type { EquipmentDefinition } from '../types';
+
+import { buildBossHead, buildClamp, buildRetortStand, buildSplitCork } from '../../engine/models/stand';
+import { buildPendulumBob, buildThreadReel } from '../../engine/models/pendulum';
+import { buildFlatRule, buildMetreRule, buildRuleFoot } from '../../engine/models/rule';
+import { buildStopwatch } from '../../engine/models/stopwatch';
+import { SpringBalance, SpringModel, buildMassHanger, buildSlottedMass } from '../../engine/models/masses';
+import { withUpdate } from './helpers';
+
+export const MECHANICS_EQUIPMENT: EquipmentDefinition[] = [
+  {
+    id: 'retort-stand',
+    name: 'Retort stand',
+    group: 'mechanics',
+    summary: 'Cast-iron base with a 75 cm rod. Carries clamps "at any height".',
+    glyph: '🗼',
+    keywords: ['stand', 'boss', 'rod', 'support'],
+    footprintM: 0.16,
+    build: buildRetortStand,
+  },
+  {
+    id: 'boss-head',
+    name: 'Boss head',
+    group: 'mechanics',
+    summary: 'Double clamp that locks a rod to the stand.',
+    glyph: '🔩',
+    keywords: ['clamp', 'boss', 'grip'],
+    footprintM: 0.03,
+    build: buildBossHead,
+  },
+  {
+    id: 'clamp',
+    name: 'Clamp',
+    group: 'mechanics',
+    summary: 'Holds the split cork — the point of suspension.',
+    glyph: '🗜️',
+    keywords: ['clamp', 'jaw', 'grip'],
+    footprintM: 0.1,
+    build: () => buildClamp({ rodLength: 0.2 }),
+  },
+  {
+    id: 'split-cork',
+    name: 'Split cork',
+    group: 'mechanics',
+    summary: 'A cork with a slit to trap the thread precisely.',
+    glyph: '🪵',
+    keywords: ['cork', 'suspension', 'pivot'],
+    footprintM: 0.02,
+    build: () => buildSplitCork(),
+  },
+  {
+    id: 'pendulum-bob-brass',
+    name: 'Pendulum bob (brass)',
+    group: 'mechanics',
+    summary: '25 mm brass bob. Deforms nothing, rusts never.',
+    glyph: '🟡',
+    keywords: ['bob', 'pendulum', 'brass', 'sphere'],
+    footprintM: 0.02,
+    build: () => buildPendulumBob({ diameterM: 0.025, material: 'brass' }),
+  },
+  {
+    id: 'pendulum-bob-steel',
+    name: 'Pendulum bob (steel)',
+    group: 'mechanics',
+    summary: '25 mm steel bob — same period, different mass.',
+    glyph: '⚪',
+    keywords: ['bob', 'pendulum', 'steel'],
+    footprintM: 0.02,
+    build: () => buildPendulumBob({ diameterM: 0.025, material: 'steel' }),
+  },
+  {
+    id: 'pendulum-bob-plastic',
+    name: 'Pendulum bob (plastic)',
+    group: 'mechanics',
+    summary: '25 mm plastic bob — light enough to feel the air.',
+    glyph: '🔴',
+    keywords: ['bob', 'pendulum', 'plastic', 'light'],
+    footprintM: 0.02,
+    build: () => buildPendulumBob({ diameterM: 0.025, material: 'plastic' }),
+  },
+  {
+    id: 'pendulum-bob-small',
+    name: 'Pendulum bob (15 mm)',
+    group: 'mechanics',
+    summary: 'A smaller bob: the point-mass approximation improves.',
+    glyph: '🔵',
+    keywords: ['bob', 'pendulum', 'small'],
+    footprintM: 0.012,
+    build: () => buildPendulumBob({ diameterM: 0.015, material: 'brass' }),
+  },
+  {
+    id: 'thread',
+    name: 'Suspension thread',
+    group: 'mechanics',
+    summary: 'Inextensible cotton thread, 1.2 m, with a reel.',
+    glyph: '🧵',
+    keywords: ['thread', 'string', 'cotton', 'reel'],
+    footprintM: 0.05,
+    build: buildThreadReel,
+  },
+  {
+    id: 'metre-rule',
+    name: 'Metre rule',
+    group: 'mechanics',
+    summary: '0 – 100 cm, graduations to 1 mm. The measuring workhorse.',
+    glyph: '📏',
+    keywords: ['rule', 'ruler', 'metre', 'length', 'scale'],
+    footprintM: 0.05,
+    build: () => buildMetreRule({ lengthM: 1, label: 'METRE RULE' }),
+  },
+  {
+    id: 'half-metre-rule',
+    name: 'Half-metre rule',
+    group: 'mechanics',
+    summary: '0 – 50 cm rule, handy for short pendulums.',
+    glyph: '📐',
+    keywords: ['rule', 'ruler', 'half', 'length'],
+    footprintM: 0.05,
+    build: () => buildMetreRule({ lengthM: 0.5, label: 'HALF-METRE RULE' }),
+  },
+  {
+    id: 'rule-foot',
+    name: 'Rule foot',
+    group: 'mechanics',
+    summary: 'Slotted block that holds a rule upright.',
+    glyph: '🧱',
+    keywords: ['foot', 'holder', 'block'],
+    footprintM: 0.08,
+    build: buildRuleFoot,
+  },
+  {
+    id: 'stopwatch',
+    name: 'Digital stopwatch',
+    group: 'mechanics',
+    summary: '0.01 s resolution. Your reaction time is the real limit.',
+    glyph: '⏱️',
+    keywords: ['stopwatch', 'timer', 'time', 'clock'],
+    footprintM: 0.04,
+    build: () => {
+      const view = buildStopwatch();
+      // Experiments drive the LCD through this handle.
+      view.group.userData.stopwatchView = view;
+      return withUpdate(view.group, (dt) => view.update(dt));
+    },
+  },
+  {
+    id: 'ticker-timer-rule',
+    name: 'Short rule (30 cm)',
+    group: 'mechanics',
+    summary: 'Flat 30 cm rule for short distances.',
+    glyph: '📊',
+    keywords: ['rule', 'short', 'optical'],
+    footprintM: 0.16,
+    build: () => buildFlatRule({ lengthM: 0.3 }),
+  },
+  {
+    id: 'mass-hanger',
+    name: 'Mass hanger',
+    group: 'mechanics',
+    summary: '50 g hanger with a stem for slotted masses.',
+    glyph: '🪝',
+    keywords: ['hanger', 'mass', 'weight'],
+    footprintM: 0.03,
+    build: buildMassHanger,
+  },
+  {
+    id: 'mass-10g',
+    name: 'Slotted mass 10 g',
+    group: 'mechanics',
+    summary: '10 g brass disc. The smallest in the box.',
+    glyph: '🔘',
+    keywords: ['mass', 'weight', 'slotted'],
+    footprintM: 0.02,
+    build: () => buildSlottedMass(10),
+  },
+  {
+    id: 'mass-20g',
+    name: 'Slotted mass 20 g',
+    group: 'mechanics',
+    summary: '20 g brass disc.',
+    glyph: '🔘',
+    keywords: ['mass', 'weight', 'slotted'],
+    footprintM: 0.02,
+    build: () => buildSlottedMass(20),
+  },
+  {
+    id: 'mass-50g',
+    name: 'Slotted mass 50 g',
+    group: 'mechanics',
+    summary: '50 g brass disc.',
+    glyph: '🔘',
+    keywords: ['mass', 'weight', 'slotted'],
+    footprintM: 0.025,
+    build: () => buildSlottedMass(50),
+  },
+  {
+    id: 'mass-100g',
+    name: 'Slotted mass 100 g',
+    group: 'mechanics',
+    summary: '100 g brass disc — the heavyweight.',
+    glyph: '🔘',
+    keywords: ['mass', 'weight', 'slotted'],
+    footprintM: 0.03,
+    build: () => buildSlottedMass(100),
+  },
+  {
+    id: 'spring-stiff',
+    name: 'Spring A (stiff)',
+    group: 'mechanics',
+    summary: 'Extension spring, k ≈ 25 N/m. Hooke\'s law material.',
+    glyph: '🌀',
+    keywords: ['spring', 'helix', 'extension', 'hooke'],
+    footprintM: 0.03,
+    build: () => {
+      const spring = new SpringModel({ naturalLengthM: 0.12, springConstantNm: 25 });
+      return spring.group;
+    },
+  },
+  {
+    id: 'spring-soft',
+    name: 'Spring B (soft)',
+    group: 'mechanics',
+    summary: 'A softer spring, k ≈ 12 N/m. Stretches twice as far.',
+    glyph: '🌀',
+    keywords: ['spring', 'helix', 'soft'],
+    footprintM: 0.03,
+    build: () => {
+      const spring = new SpringModel({ naturalLengthM: 0.12, springConstantNm: 12 });
+      return spring.group;
+    },
+  },
+  {
+    id: 'spring-balance',
+    name: 'Spring balance',
+    group: 'mechanics',
+    summary: '0 – 5 N newton meter for weighing in newtons.',
+    glyph: '🎣',
+    keywords: ['spring', 'balance', 'newton', 'force'],
+    footprintM: 0.03,
+    build: () => new SpringBalance(5).group,
+  },
+];
