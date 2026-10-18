@@ -44,18 +44,12 @@ import { BaseExperiment } from '../types';
 import type { AnalysisResult, ColumnDef, DataSet, ExperimentStatus, LabServices } from '../types';
 import type { GroupId } from '@/lab/types';
 import { MAGNET_RIG, MagnetFieldRig } from './MagnetFieldRig';
-import {
-  DEFLECTION_READING_SIGMA_DEG,
-  DISTANCE_READING_SIGMA_M,
-  EARTH_HORIZONTAL_T,
-  halfFieldDistanceM,
-  inverseCubeError,
-  momentFromGradient,
-  tanError,
-} from '@/physics/electromagnetism';
-import { linearFit } from '@/core/math';
-import { button, card, note, numberField, stat, toggle } from '@/ui/widgets';
-import type { ButtonWidget, NumberFieldWidget, ToggleWidget } from '@/ui/widgets';
+import { EARTH_HORIZONTAL_T } from '@/physics/electromagnetism';
+import { analyseMagnet, magnetGraphDecorations, revealMagnet } from './MagnetAnalysis';
+import { CompassReading } from './MagnetReading';
+import type { ReadingField, ReadingStatus } from './MagnetReading';
+import { mountMagnetControls } from './MagnetControls';
+import type { MagnetControlsHandle, MagnetControlsModel, MagnetSnapshot } from './MagnetControls';
 
 export class BarMagnetFieldExperiment extends BaseExperiment {
   readonly id = 'magnetic-field';
@@ -125,23 +119,14 @@ export class BarMagnetFieldExperiment extends BaseExperiment {
   #earthH = EARTH_HORIZONTAL_T;
 
   // --- Reading -------------------------------------------------------------
-  #readingDcm: number | null = null;
-  #readingThetaDeg: number | null = null;
-  #readFromApparatus = false;
+  #reading = new CompassReading();
 
   // --- Options -------------------------------------------------------------
   #showGuide = false;
   #showFilings = false;
 
-  // --- Live widgets --------------------------------------------------------
-  #widgets: {
-    position?: ReturnType<typeof stat>;
-    dField?: NumberFieldWidget;
-    thetaField?: NumberFieldWidget;
-    recordButton?: ButtonWidget;
-    guideToggle?: ToggleWidget;
-    filingsToggle?: ToggleWidget;
-  } = {};
+  // --- Controls ------------------------------------------------------------
+  #refreshControls: MagnetControlsHandle | null = null;
 
   #lastValidatedPosition: { x: number; z: number } | null = null;
 
@@ -218,9 +203,13 @@ export class BarMagnetFieldExperiment extends BaseExperiment {
       Math.hypot(position.x - this.#lastValidatedPosition.x, position.z - this.#lastValidatedPosition.z) > 0.001;
     if (moved) {
       this.#lastValidatedPosition = position;
-      this.#validate();
-      this.#updatePositionStat();
+      this.#refreshPanel();
     }
+  }
+
+  /** Push the current model values into the mounted control panel. */
+  #refreshPanel(): void {
+    this.#refreshControls?.refresh();
   }
 
   // -------------------------------------------------------------------------
@@ -278,49 +267,32 @@ export class BarMagnetFieldExperiment extends BaseExperiment {
   #takeReading(services: LabServices): void {
     const apparent = this.#apparent();
     if (!apparent) return;
-    this.#readingDcm = apparent.dCm;
-    this.#readingThetaDeg = apparent.thetaDeg;
-    this.#readFromApparatus = true;
-    this.#widgets.dField?.setValue(apparent.dCm);
-    this.#widgets.thetaField?.setValue(apparent.thetaDeg);
-    this.#validate();
+    this.#reading.setFromLens(apparent.dCm, apparent.thetaDeg);
+    this.#refreshPanel();
     services.bus.emit('coach:say', {
       text: `Read d = ${apparent.dCm.toFixed(1)} cm, θ = ${apparent.thetaDeg.toFixed(0)}°. Press Record to log it.`,
     });
   }
 
-  #updatePositionStat(): void {
+  /** Where the compass sits on the printed scale, and how far off the line. */
+  #updatePositionStat(): { text: string; tone: 'default' | 'good' | 'warn' } {
     const rig = this.#rig;
-    const widget = this.#widgets.position;
-    if (!rig || !widget) return;
+    if (!rig) return { text: '—', tone: 'default' };
     const offLine = rig.compassOffLine;
     const offLineText = offLine < 0.001 ? 'on the line' : `${(offLine * 1000).toFixed(0)} mm off line`;
-    widget.set(`d = ${(rig.scaleDistanceM * 100).toFixed(1)} cm · ${offLineText}`, offLine > 0.004 ? 'warn' : 'good');
+    return {
+      text: `d = ${(rig.scaleDistanceM * 100).toFixed(1)} cm · ${offLineText}`,
+      tone: offLine > 0.004 ? 'warn' : 'good',
+    };
   }
 
-  /** Colour the entry fields by how well they match what the apparatus shows. */
-  #validate(): void {
+  /** Colour an entry field by how well it matches what the apparatus shows. */
+  #readingStatus(field: ReadingField): ReadingStatus {
     const apparent = this.#apparent();
-    const { dField, thetaField } = this.#widgets;
-    if (!apparent || !dField || !thetaField) return;
-
-    const d = this.#readingDcm;
-    if (d === null) dField.setStatus('none');
-    else {
-      const errorCm = Math.abs(d - apparent.dCm);
-      if (errorCm <= 0.15) dField.setStatus('good', '✓');
-      else if (errorCm <= 0.4) dField.setStatus('warn', `${(errorCm * 10).toFixed(1)} mm off`);
-      else dField.setStatus('bad', `${(errorCm * 10).toFixed(1)} mm off — re-read`);
-    }
-
-    const theta = this.#readingThetaDeg;
-    if (theta === null) thetaField.setStatus('none');
-    else {
-      const errorDeg = Math.abs(theta - apparent.thetaDeg);
-      if (errorDeg <= 2) thetaField.setStatus('good', '✓');
-      else if (errorDeg <= 5) thetaField.setStatus('warn', `${errorDeg.toFixed(0)}° off`);
-      else thetaField.setStatus('bad', `${errorDeg.toFixed(0)}° off — re-read`);
-    }
+    if (!apparent) return { level: 'none' };
+    return field === 'd'
+      ? this.#reading.verdictFor(this.#reading.dCm, apparent.dCm, 'cm')
+      : this.#reading.verdictFor(this.#reading.thetaDeg, apparent.thetaDeg, '°');
   }
 
   // -------------------------------------------------------------------------
@@ -338,7 +310,7 @@ export class BarMagnetFieldExperiment extends BaseExperiment {
         `The compass sat ${(apparent.offLineM * 1000).toFixed(0)} mm off the equatorial line — tan θ = B/H only holds on it.`,
       );
     }
-    const d = this.#readingDcm;
+    const d = this.#reading.dCm;
     if (d !== null) {
       if (d / 100 < MAGNET_RIG.minDistanceM) {
         warnings.push(
@@ -347,7 +319,7 @@ export class BarMagnetFieldExperiment extends BaseExperiment {
       }
       if (d / 100 > MAGNET_RIG.maxDistanceM) warnings.push('That reading is at the very edge of the paper.');
     }
-    const theta = this.#readingThetaDeg;
+    const theta = this.#reading.thetaDeg;
     if (theta !== null) {
       if (theta < 6) warnings.push('The needle is barely deflected: out here the ±1° reading error dominates.');
       if (theta > 80) warnings.push('The needle is nearly at right angles — the compass is very close to the magnet.');
@@ -360,8 +332,8 @@ export class BarMagnetFieldExperiment extends BaseExperiment {
     const rig = this.#rig;
     if (!rig) return;
 
-    const dCm = this.#readingDcm;
-    const theta = this.#readingThetaDeg;
+    const dCm = this.#reading.dCm;
+    const theta = this.#reading.thetaDeg;
     if (dCm === null || theta === null) {
       services.bus.emit('toast', {
         message: 'Take both readings first: the distance from the scale and the deflection of the needle.',
@@ -382,7 +354,7 @@ export class BarMagnetFieldExperiment extends BaseExperiment {
     const note = [
       `d = ${dCm.toFixed(1)} cm`,
       `θ = ${theta.toFixed(0)}°`,
-      this.#readFromApparatus ? 'read from the scale and needle' : 'partly typed in',
+      this.#reading.fromApparatus ? 'read from the scale and needle' : 'partly typed in',
     ].join(' · ');
 
     services.data.addRow({ d, theta, invD3, tanTheta }, { note, warnings });
@@ -396,12 +368,8 @@ export class BarMagnetFieldExperiment extends BaseExperiment {
     }
 
     // Clear the entry so the next reading starts clean.
-    this.#readingDcm = null;
-    this.#readingThetaDeg = null;
-    this.#readFromApparatus = false;
-    this.#widgets.dField?.setValue(null);
-    this.#widgets.thetaField?.setValue(null);
-    this.#widgets.thetaField?.setStatus('none');
+    this.#reading.clear();
+    this.#refreshPanel();
 
     services.bus.emit('graph:refresh', {});
     this.#publishStatus(services);
@@ -412,117 +380,27 @@ export class BarMagnetFieldExperiment extends BaseExperiment {
   // -------------------------------------------------------------------------
 
   override analyse(dataset: DataSet): AnalysisResult {
-    const rows = dataset.rows;
-    const lines: string[] = [];
-    const tips: string[] = [];
-
-    if (rows.length < 2) {
-      return {
-        headline: 'Record at least two readings to draw a graph.',
-        lines: ['Put the compass on the equatorial line, read d from the scale and θ from the needle, then press Record.'],
-        tips: ['Aim for six or more distances spread between about 12 cm and 45 cm.'],
-      };
-    }
-
-    const xs = rows.map((row) => row.values.invD3);
-    const ys = rows.map((row) => row.values.tanTheta);
-    const fit = linearFit(xs, ys);
-    if (!fit) {
-      return { headline: 'Not enough distinct distances to fit a line.', lines };
-    }
-
-    const gradient = fit.slope;
-    const moment = momentFromGradient(gradient, this.#earthH);
-    const momentUncertainty =
-      gradient !== 0 && Number.isFinite(fit.slopeStdError)
-        ? Math.abs((moment * fit.slopeStdError) / gradient)
-        : Number.NaN;
-
-    const headline = `m ≈ ${moment.toFixed(2)} A·m²   (tan θ ∝ 1/d³, r² = ${fit.r2.toFixed(4)})`;
-
-    lines.push(
-      `Gradient of the tan θ–(1/d³) graph = ${gradient.toExponential(3)} m³   (± ${fit.slopeStdError.toExponential(2)})`,
-    );
-    lines.push(`Intercept = ${fit.intercept.toExponential(2)}   (ideal value: 0)`);
-    lines.push(
-      `m = 4πH·gradient/μ₀ = ${moment.toFixed(3)}` +
-        (Number.isFinite(momentUncertainty) ? ` ± ${Math.max(0.005, momentUncertainty).toFixed(3)}` : '') +
-        ' A·m²',
-    );
-    lines.push(
-      `The needle sits at 45° (magnet's field = Earth's) at ${(Math.cbrt(gradient) * 100).toFixed(1)} cm from the centre.`,
-    );
-    lines.push(`Correlation coefficient r² = ${fit.r2.toFixed(5)}   (points: ${fit.n})`);
-    lines.push(`Earth's horizontal field used: H = ${(this.#earthH * 1e6).toFixed(0)} µT.`);
-
-    // --- Quality checks ----------------------------------------------------
-    if (fit.r2 < 0.995) {
-      tips.push(
-        `Your points are not very collinear (r² = ${fit.r2.toFixed(4)}). The commonest cause is the compass not being ` +
-          'exactly on the equatorial line, followed by measuring d from the end of the magnet instead of its centre.',
-      );
-    }
-
-    const maxY = Math.max(...ys.map((value) => Math.abs(value)), 1e-6);
-    if (Math.abs(fit.intercept) > 0.05 * maxY) {
-      tips.push(
-        `The intercept is ${fit.intercept.toExponential(2)}, well away from zero. A straight line that misses the origin ` +
-          'usually means the compass was offset from the line, or that the needle has a zero error.',
-      );
-    }
-
-    const tooClose = rows.filter((row) => row.values.d < MAGNET_RIG.minDistanceM);
-    if (tooClose.length > 0) {
-      tips.push(
-        `${tooClose.length} of ${rows.length} readings used d < ${(MAGNET_RIG.minDistanceM * 100).toFixed(0)} cm, where the ` +
-          'bar is too short to behave like a point dipole — those points bend the line downwards.',
-      );
-    }
-
-    const tooFar = rows.filter((row) => row.values.tanTheta < Math.tan(THREE.MathUtils.degToRad(6)));
-    if (tooFar.length > 0) {
-      tips.push(
-        `${tooFar.length} reading(s) had θ below 6°. Far from the magnet the ±1° you can read on the card is a very large ` +
-          'fraction of θ, so the outermost points scatter most: weight the nearer, well-deflected readings more heavily.',
-      );
-    }
-
-    if (rows.length < 5) {
-      tips.push('Six or seven well-spread distances make a far more convincing graph than three.');
-    }
-
-    tips.push('Press Reveal in the analysis panel to check your moment against the one this magnet actually has.');
-
-    return { headline, lines, fit, tips };
+    return analyseMagnet(dataset.rows, this.#earthH, MAGNET_RIG.minDistanceM);
   }
 
   /**
    * Error bars from the two reading errors: ±0.5 mm on the scale position and
-   * ±0.5° on the needle. The error on `1/d³` is `3δd/d⁴`; on `tan θ` it is
-   * `δθ·sec²θ`. Both blow up where the physics is weakest, which is the point.
+   * ±0.5° on the needle. The theory line is not drawn here — the moment is the
+   * unknown — so this only ever returns the per-point uncertainties.
    */
   graphDecorations(dataset: DataSet): {
     xErrors?: number[];
     yErrors?: number[];
     theory?: { slope: number; intercept: number; label: string };
   } {
-    const deltaTheta = THREE.MathUtils.degToRad(DEFLECTION_READING_SIGMA_DEG);
-    return {
-      xErrors: dataset.rows.map((row) => inverseCubeError(row.values.d, DISTANCE_READING_SIGMA_M)),
-      yErrors: dataset.rows.map((row) => tanError(THREE.MathUtils.degToRad(row.values.theta), deltaTheta)),
-    };
+    return magnetGraphDecorations(dataset.rows);
   }
 
   /** Reveal the moment of this particular bar magnet. */
   reveal(): string | null {
     const rig = this.#rig;
     if (!rig) return null;
-    const halfCm = halfFieldDistanceM(rig.magnet, this.#earthH) * 100;
-    return (
-      `This bar magnet's moment is m = ${rig.magnet.momentAm2.toFixed(3)} A·m². ` +
-      `Against the Earth's horizontal field of ${(this.#earthH * 1e6).toFixed(0)} µT the needle reaches 45° ` +
-      `at ${halfCm.toFixed(1)} cm from the centre.`
-    );
+    return revealMagnet(rig.magnet.momentAm2, this.#earthH);
   }
 
   // -------------------------------------------------------------------------
@@ -555,7 +433,7 @@ export class BarMagnetFieldExperiment extends BaseExperiment {
     let state = 'mapping';
     let hint =
       'Drag the compass anywhere on the paper: the needle follows the field. For a *measurement*, keep it on the equatorial line.';
-    if (this.#readingDcm !== null && this.#readingThetaDeg !== null) {
+    if (this.#reading.dCm !== null && this.#reading.thetaDeg !== null) {
       state = 'measured';
       hint = 'Recording ready — press Record (or Enter) to add the reading to the table.';
     }
@@ -570,169 +448,51 @@ export class BarMagnetFieldExperiment extends BaseExperiment {
   buildControls(container: HTMLElement, services: LabServices): void {
     const rig = this.#rig;
     if (!rig) return;
-    this.#widgets = {};
 
-    // ---- 1. Apparatus -----------------------------------------------------
-    const apparatus = card('Plotting the field', { glyph: '🧭' });
-    apparatus.body.append(
-      note(
-        'The needle points along the resultant of the magnet and the Earth, so every pencil mark you walk out is a real field line.',
-        'info',
-      ),
-    );
+    // The app rebuilds this panel whenever the practical's state changes shape,
+    // so let the outgoing panel release anything it owns before we mount another.
+    this.#refreshControls?.dispose();
+    this.#refreshControls = null;
 
-    const bar = document.createElement('div');
-    bar.className = 'pl-btnrow';
-    bar.append(
-      button({
-        label: 'Walk one step',
-        glyph: '👣',
-        variant: 'primary',
-        title: 'Advance the compass 1 cm along the needle and leave a pencil mark (W)',
-        onClick: () => this.walkStep(services),
-      }).root,
-    );
-    bar.append(
-      button({
-        label: 'New line',
-        glyph: '✏️',
-        title: 'Finish this pencil line and start a fresh one (N)',
-        onClick: () => this.newLine(services),
-      }).root,
-    );
-    apparatus.body.append(bar);
-
-    const bar2 = document.createElement('div');
-    bar2.className = 'pl-btnrow';
-    bar2.append(
-      button({
-        label: 'Rub out lines',
-        glyph: '🧹',
-        title: 'Clear every pencil line',
-        onClick: () => {
-          rig.clearPencilLines();
-          this.#refreshLive(true);
-          services.bus.emit('coach:say', { text: 'Pencil lines cleared — the paper is blank again.' });
-        },
-      }).root,
-    );
-    bar2.append(
-      button({
-        label: 'Square up',
-        glyph: '👁',
-        title: 'Look straight down on the paper',
-        onClick: () => this.squareUp(services),
-      }).root,
-    );
-    apparatus.body.append(bar2);
-
-    this.#widgets.guideToggle = toggle({
-      label: 'Training wheels — draw the whole field line',
-      hint: 'Shows the complete field line through the compass (dashed). Turn it off in exam conditions and plot the line yourself.',
-      value: this.#showGuide,
-      onChange: (value) => {
+    const model: MagnetControlsModel = {
+      walkStep: () => this.walkStep(services),
+      newLine: () => this.newLine(services),
+      rubOutLines: () => {
+        rig.clearPencilLines();
+        this.#refreshLive(true);
+        services.bus.emit('coach:say', { text: 'Pencil lines cleared — the paper is blank again.' });
+      },
+      squareUp: () => this.squareUp(services),
+      setShowGuide: (value) => {
         this.#showGuide = value;
         rig.updateGuideLine(value);
       },
-    });
-    apparatus.body.append(this.#widgets.guideToggle.root);
-
-    this.#widgets.filingsToggle = toggle({
-      label: 'Lay the iron-filings card over the magnet',
-      hint: 'Sprinkle-on-a-card view of the same dipole field.',
-      value: this.#showFilings,
-      onChange: (value) => {
+      setShowFilings: (value) => {
         this.#showFilings = value;
         rig.setFilingsVisible(value);
       },
-    });
-    apparatus.body.append(this.#widgets.filingsToggle.root);
-
-    apparatus.body.append(
-      stat('Earth\'s horizontal field', `${(this.#earthH * 1e6).toFixed(0)} µT`).root,
-    );
-
-    container.append(apparatus.root);
-
-    // ---- 2. Reading the scale --------------------------------------------
-    const reading = card('Reading the scale and the needle', { glyph: '📏' });
-    reading.body.append(
-      note(
-        'Read the distance d from the printed centimetre scale and the deflection θ of the red end of the needle from N. The table stores d in metres.',
-        'info',
-      ),
-    );
-
-    this.#widgets.position = stat('Compass on the scale', '—');
-    this.#updatePositionStat();
-    reading.body.append(this.#widgets.position.root);
-
-    const takeRow = document.createElement('div');
-    takeRow.className = 'pl-btnrow';
-    takeRow.append(
-      button({
-        label: 'Use this reading',
-        glyph: '🔍',
-        variant: 'primary',
-        title: 'Copy the scale distance and the needle deflection into the fields below',
-        onClick: () => this.#takeReading(services),
-      }).root,
-    );
-    reading.body.append(takeRow);
-
-    this.#widgets.dField = numberField({
-      label: 'Distance d from the centre',
-      unit: 'cm',
-      step: 0.05,
-      decimals: 2,
-      value: this.#readingDcm,
-      placeholder: 'read from the scale',
-      hint: 'Measured along the equatorial line, from the centre of the magnet.',
-      onCommit: (value) => {
-        this.#readingDcm = value;
-        if (value !== null) this.#readFromApparatus = false;
-        this.#validate();
+      takeReading: () => this.#takeReading(services),
+      setTypedReading: (field, value) => {
+        this.#reading.setTyped(field, value);
+        this.#refreshPanel();
       },
-    });
-    this.#widgets.thetaField = numberField({
-      label: 'Deflection θ of the needle',
-      unit: '°',
-      step: 1,
-      decimals: 0,
-      value: this.#readingThetaDeg,
-      placeholder: 'read from the card',
-      hint: 'Angle between the red end of the needle and the N mark.',
-      onCommit: (value) => {
-        this.#readingThetaDeg = value;
-        if (value !== null) this.#readFromApparatus = false;
-        this.#validate();
-      },
-    });
-    reading.body.append(this.#widgets.dField.root, this.#widgets.thetaField.root);
+      readingStatus: (field) => this.#readingStatus(field),
+      record: () => this.recordTrial(services),
+      snapshot: () => this.#snapshot(),
+    };
 
-    reading.body.append(
-      note(
-        'Where the magnet\'s field is comparable to the Earth\'s the needle swings a long way round — that is the part of the paper where the reading is most sensitive, and where the graph is best defined.',
-        'info',
-      ),
-    );
+    this.#refreshControls = mountMagnetControls(container, model);
+  }
 
-    container.append(reading.root);
-
-    // ---- 3. Record --------------------------------------------------------
-    const record = card('Record the reading', { glyph: '📝' });
-    this.#widgets.recordButton = button({
-      label: 'Record reading',
-      glyph: '➕',
-      variant: 'primary',
-      title: 'Add d, θ, 1/d³ and tan θ to the table (Enter)',
-      onClick: () => this.recordTrial(services),
-    });
-    record.body.append(this.#widgets.recordButton.root);
-    record.body.append(
-      note('1/d³ and tan θ are computed for you. Keep the compass on the equatorial line or the graph will bend.', 'info'),
-    );
-    container.append(record.root);
+  #snapshot(): MagnetSnapshot {
+    return {
+      earthFieldUT: this.#earthH * 1e6,
+      showGuide: this.#showGuide,
+      showFilings: this.#showFilings,
+      dCm: this.#reading.dCm,
+      thetaDeg: this.#reading.thetaDeg,
+      position: this.#updatePositionStat(),
+    };
   }
 
   // -------------------------------------------------------------------------
@@ -746,12 +506,11 @@ export class BarMagnetFieldExperiment extends BaseExperiment {
 
   override dispose(services: LabServices): void {
     super.dispose(services);
+    this.#refreshControls?.dispose();
+    this.#refreshControls = null;
     this.#rig?.dispose();
     this.#rig = null;
-    this.#widgets = {};
-    this.#readingDcm = null;
-    this.#readingThetaDeg = null;
-    this.#readFromApparatus = false;
+    this.#reading.clear();
     this.#lastValidatedPosition = null;
   }
 }
