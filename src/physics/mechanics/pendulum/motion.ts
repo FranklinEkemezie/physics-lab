@@ -1,6 +1,5 @@
 /**
- * The simple pendulum: equations of motion and the theory a student compares
- * against.
+ * The simple pendulum: equations of motion.
  *
  * ### The honest equation
  * A real pendulum does **not** obey `θ'' = −(g/L)·θ`. That is the small-angle
@@ -18,7 +17,8 @@
  *    same as "20 oscillations at the start".
  */
 
-import type { Location } from './constants';
+import { rk4Step, type VectorSpace } from '@/core/math';
+import type { Location } from '../../constants';
 
 export interface PendulumParameters {
   /** Distance from the pivot to the *centre* of the bob, in metres. */
@@ -45,6 +45,12 @@ export interface PendulumState {
   omega: number;
 }
 
+/** How the pendulum state is added and scaled — the algebra RK4 needs. */
+const PENDULUM_SPACE: VectorSpace<PendulumState> = {
+  add: (a, b) => ({ theta: a.theta + b.theta, omega: a.omega + b.omega }),
+  scale: (a, k) => ({ theta: a.theta * k, omega: a.omega * k }),
+};
+
 /**
  * Angular acceleration `θ''`. This is the single source of truth for the
  * pendulum's motion — everything else in the lab derives from it.
@@ -70,95 +76,24 @@ export function angularAcceleration(state: PendulumState, parameters: PendulumPa
 }
 
 /**
- * Classical fourth-order Runge–Kutta integration of the pendulum ODE.
+ * Advance the pendulum by `dt` with one fourth-order Runge–Kutta step.
  *
- * RK4 at a fixed 1/480 s step is far more accurate than the frame rate would
- * be, and because the step is fixed the simulation gives the same answer on a
- * 60 Hz laptop and a 144 Hz monitor.
+ * The integrator itself is generic (see `@/core/math/ode`); all this adds is
+ * the pendulum's derivative and the algebra of its two-element state.
  */
 export function integratePendulum(
   state: PendulumState,
   parameters: PendulumParameters,
   dt: number,
 ): PendulumState {
-  const accel = (s: PendulumState): number => angularAcceleration(s, parameters);
-
-  const k1Theta = state.omega;
-  const k1Omega = accel(state);
-
-  const mid1: PendulumState = { theta: state.theta + (dt / 2) * k1Theta, omega: state.omega + (dt / 2) * k1Omega };
-  const k2Theta = mid1.omega;
-  const k2Omega = accel(mid1);
-
-  const mid2: PendulumState = { theta: state.theta + (dt / 2) * k2Theta, omega: state.omega + (dt / 2) * k2Omega };
-  const k3Theta = mid2.omega;
-  const k3Omega = accel(mid2);
-
-  const end: PendulumState = { theta: state.theta + dt * k3Theta, omega: state.omega + dt * k3Omega };
-  const k4Theta = end.omega;
-  const k4Omega = accel(end);
-
-  return {
-    theta: state.theta + (dt / 6) * (k1Theta + 2 * k2Theta + 2 * k3Theta + k4Theta),
-    omega: state.omega + (dt / 6) * (k1Omega + 2 * k2Omega + 2 * k3Omega + k4Omega),
-  };
+  const derivative = (s: PendulumState): PendulumState => ({
+    theta: s.omega,
+    omega: angularAcceleration(s, parameters),
+  });
+  return rk4Step(state, 0, dt, derivative, PENDULUM_SPACE);
 }
 
-// ---------------------------------------------------------------------------
-// Theory: what the textbook predicts
-// ---------------------------------------------------------------------------
-
-/** Ideal point-mass, infinitesimal-amplitude period `T = 2π√(L/g)`. */
-export function idealPeriod(lengthM: number, g: number): number {
-  return 2 * Math.PI * Math.sqrt(lengthM / g);
-}
-
-/**
- * Period including the two corrections a *good* student could spot:
- *  1. finite amplitude: `T ≈ T₀(1 + θ₀²/16 + 11θ₀⁴/3072)`
- *  2. finite bob size: `T = T₀·√(1 + (2/5)(r/L)²)`
- */
-export function correctedPeriod(
-  lengthM: number,
-  g: number,
-  amplitudeRad: number,
-  bobRadiusM = 0,
-): number {
-  const t0 = idealPeriod(lengthM, g);
-  const amplitudeFactor = 1 + amplitudeRad ** 2 / 16 + (11 * amplitudeRad ** 4) / 3072;
-  const inertiaFactor = Math.sqrt(1 + (2 / 5) * (bobRadiusM / lengthM) ** 2);
-  return t0 * amplitudeFactor * inertiaFactor;
-}
-
-/**
- * The headline result of the practical: the gradient of a `T²` against `L`
- * graph is `4π²/g`, so
- *
- * ```text
- *   g = 4π² / gradient
- * ```
- *
- * @param slopeSI Gradient of T² (s²) versus L (m).
- */
-export function gravityFromSlope(slopeSI: number): number {
-  if (!Number.isFinite(slopeSI) || slopeSI === 0) return Number.NaN;
-  return (4 * Math.PI * Math.PI) / slopeSI;
-}
-
-/**
- * Uncertainty in g propagated from the uncertainty in the gradient:
- * `Δg/g = Δm/m`.
- */
-export function gravityFromSlopeWithUncertainty(
-  slopeSI: number,
-  slopeUncertaintySI: number,
-): { g: number; uncertainty: number } {
-  const g = gravityFromSlope(slopeSI);
-  const relative = Math.abs(slopeUncertaintySI / slopeSI);
-  return { g, uncertainty: g * relative };
-}
-
-/** Energy of the pendulum (small oscillation, relative to the lowest point). */
+/** Energy of the pendulum (relative to the lowest point). */
 export function pendulumEnergy(state: PendulumState, parameters: PendulumParameters): number {
   const { lengthM, bobMassKg, g } = parameters;
   const potential = bobMassKg * g * lengthM * (1 - Math.cos(state.theta));

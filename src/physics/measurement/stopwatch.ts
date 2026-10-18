@@ -1,7 +1,7 @@
 /**
  * The stopwatch, and the human holding it.
  *
- * The timing error in this practical is *not* the stopwatch. A quartz
+ * The timing error in a pendulum practical is *not* the stopwatch. A quartz
  * stopwatch is accurate to ~100 ppm (0.002 s over 20 s); a student's reaction
  * time is 200 ms, a hundred times larger, and it is *random* — so it scatters
  * repeated readings rather than shifting them all one way.
@@ -14,8 +14,8 @@
  */
 
 import { Rng, snap } from '@/core/math';
-import { REACTION_SIGMA_S } from './constants';
-import { reactionTime } from './measurement/reactionTime';
+import { REACTION_SIGMA_S } from '../constants';
+import { reactionTime } from './reactionTime';
 
 export interface StopwatchOptions {
   /** Display resolution in seconds (0.01 s on a typical digital stopwatch). */
@@ -168,4 +168,22 @@ export class StopwatchInstrument {
     const jitter = this.#rng.normalClipped(0, REACTION_SIGMA_S * 0.4, 2);
     return Math.max(0.08, base + jitter);
   }
+}
+
+/**
+ * The error a stopwatch's own hardware contributes over a given interval.
+ * @param calibrationError Fractional error (e.g. 100e-6 for 100 ppm).
+ */
+export function stopwatchErrorS(intervalS: number, calibrationError: number): number {
+  return Math.abs(intervalS * calibrationError);
+}
+
+/**
+ * Uncertainty in a period derived from timing `n` oscillations.
+ *
+ * `T = t/n`, so `ΔT = Δt/n`: timing many swings is the single cheapest way to
+ * improve this experiment, which is why every textbook insists on it.
+ */
+export function periodUncertaintyS(timingUncertaintyS: number, oscillations: number): number {
+  return timingUncertaintyS / Math.max(1, oscillations);
 }

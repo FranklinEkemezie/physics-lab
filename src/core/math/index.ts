@@ -3,4 +3,5 @@ export * from './scalar';
 export * from './vectors';
 export * from './statistics';
 export * from './ode';
+export * from './streamline';
 export * from './random';

@@ -16,10 +16,10 @@ import {
   idealPeriod,
   integratePendulum,
   parametersForLocation,
-} from '@/physics/pendulum';
-import type { PendulumParameters } from '@/physics/pendulum';
+} from '@/physics/mechanics/pendulum';
+import type { PendulumParameters } from '@/physics/mechanics/pendulum';
 import { linearFit } from '@/core/math';
-import { StopwatchInstrument } from '@/physics/Stopwatch';
+import { StopwatchInstrument } from '@/physics/measurement';
 import { createMysteryLocation, EARTH, REACTION_MEAN_S } from '@/physics/constants';
 import {
   EARTH_HORIZONTAL_T,
@@ -32,11 +32,10 @@ import {
   momentVector,
   theoreticalDeflectionRad,
   totalFieldAt,
-  traceFieldLine,
   uniformField,
-} from '@/physics/magnetism';
-import type { DipoleMagnet } from '@/physics/magnetism';
-import { Rng } from '@/core/math';
+} from '@/physics/electromagnetism';
+import type { DipoleMagnet } from '@/physics/electromagnetism';
+import { Rng, traceStreamline } from '@/core/math';
 
 export interface CheckResult {
   name: string;
@@ -297,7 +296,7 @@ export function runChecks(): CheckResult[] {
   // 13. The streamline tracer must advance evenly and stay inside its box.
   {
     const bounds = { minX: -0.5, maxX: 0.5, minZ: -0.2, maxZ: 0.2 };
-    const points = traceFieldLine((x, z) => totalFieldAt(x, z, magnet, earth), { x: 0.06, z: 0.02 }, {
+    const points = traceStreamline((x, z) => totalFieldAt(x, z, magnet, earth), { x: 0.06, z: 0.02 }, {
       stepM: 0.005,
       bounds,
       stop: (x, z) => Math.hypot(x, z) < 0.03,

@@ -40,15 +40,15 @@ import type {
 import type { GroupId } from '@/lab/types';
 import { BENCH_HEIGHT } from '@/engine/LabRoom';
 import { PendulumRig, RIG } from './PendulumRig';
-import { StopwatchInstrument } from '@/physics/Stopwatch';
+import { StopwatchInstrument } from '@/physics/measurement';
 import type { StopwatchView } from '@/engine/models/stopwatch';
 import {
   amplitudeFromState,
   gravityFromSlope,
   integratePendulum,
   parametersForLocation,
-} from '@/physics/pendulum';
-import type { PendulumState } from '@/physics/pendulum';
+} from '@/physics/mechanics/pendulum';
+import type { PendulumState } from '@/physics/mechanics/pendulum';
 import { createMysteryLocation, EARTH, LOCATIONS, REACTION_MEAN_S } from '@/physics/constants';
 import type { Location } from '@/physics/constants';
 import { linearFit, mean, percentError } from '@/core/math';

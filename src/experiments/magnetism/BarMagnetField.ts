@@ -52,7 +52,7 @@ import {
   inverseCubeError,
   momentFromGradient,
   tanError,
-} from '@/physics/magnetism';
+} from '@/physics/electromagnetism';
 import { linearFit } from '@/core/math';
 import { button, card, note, numberField, stat, toggle } from '@/ui/widgets';
 import type { ButtonWidget, NumberFieldWidget, ToggleWidget } from '@/ui/widgets';

@@ -28,9 +28,9 @@ import {
   type PlanarField,
   compassHeadingRad,
   totalFieldAt,
-  traceFieldLine,
   uniformField,
-} from '@/physics/magnetism';
+} from '@/physics/electromagnetism';
+import { traceStreamline } from '@/core/math';
 
 /** Design constants. Changing these moves the whole practical. */
 export const MAGNET_RIG = {
@@ -317,7 +317,7 @@ export class MagnetFieldRig {
     this.#guideSeed = { x, z };
     if (unchanged && this.#guideLine?.visible) return;
 
-    const points = traceFieldLine(this.fieldAt, { x, z }, {
+    const points = traceStreamline(this.fieldAt, { x, z }, {
       stepM: 0.006,
       bounds: {
         minX: MAGNET_RIG.centreX - MAGNET_RIG.paperWidthM / 2 + 0.005,
