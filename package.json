@@ -1,0 +1,31 @@
+{
+  "name": "virtual-physics-lab",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A virtual WAEC-style physics laboratory built with Three.js. Perform practicals, take readings, record them in a table and plot the graph.",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": [
+    "physics",
+    "lab",
+    "simulation",
+    "three.js",
+    "education",
+    "waec"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "three": "^0.170.0"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.5",
+    "@types/three": "^0.170.0",
+    "typescript": "^5.9.3",
+    "vite": "^6.4.4"
+  }
+}
