@@ -1,11 +1,14 @@
 /**
- * Time in the lab.
+ * Simulation time.
  *
  * Physics is integrated on a *fixed* step so results do not depend on the
  * frame rate, and the whole simulation can be run faster than real time
  * (a 20-second swing measured in 5 seconds) without changing any recorded
  * number. The clock therefore keeps two scales: real seconds since the last
  * frame, and simulated seconds that everything else uses.
+ *
+ * Nothing here is physics-specific: any stepwise simulation (a titration, a
+ * population model) can drive itself from this clock.
  */
 
 export interface ClockOptions {

@@ -51,7 +51,7 @@ import {
 import type { PendulumState } from '@/physics/pendulum';
 import { createMysteryLocation, EARTH, LOCATIONS, REACTION_MEAN_S } from '@/physics/constants';
 import type { Location } from '@/physics/constants';
-import { linearFit, mean, percentError } from '@/physics/statistics';
+import { linearFit, mean, percentError } from '@/core/math';
 import { viewAzimuth } from '@/physics/measurement';
 import { ReadingLens } from '@/ui/ReadingLens';
 import { button, card, note, numberField, segmented, select, slider, stat, toggle } from '@/ui/widgets';

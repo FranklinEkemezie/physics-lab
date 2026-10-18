@@ -1,12 +1,10 @@
 /**
- * Seeded pseudo-random number generation + error models.
- *
- * A physics lab is only believable if it is imperfect. Real students deal
- * with reaction times, parallax, zero errors, slipping clamps and draughts
- * from an open window. This module is the home of all of that "noise".
+ * Seeded pseudo-random number generation.
  *
  * Using a *seeded* generator means an experiment can be reproduced exactly
- * (handy for marking), while still looking random.
+ * (handy for marking) while still looking random. The statistical models that
+ * consume these numbers — reaction time, reading error — live with the
+ * physics and measurement code, not here.
  */
 
 /** Mulberry32 — small, fast, good-enough 32-bit PRNG. */
@@ -76,17 +74,4 @@ export class Rng {
   pick<T>(items: readonly T[]): T {
     return items[Math.floor(this.next() * items.length)];
   }
-}
-
-/**
- * Human reaction time, in seconds.
- *
- * Typical "press the button when you hear the bang" reaction is 150–300 ms,
- * which is *the* dominant error in a stopwatch practical — far bigger than
- * the stopwatch's own 0.01 s display resolution.
- */
-export function reactionTime(rng: Rng): number {
-  // Slightly right-skewed: most people are ~200 ms, a few are much slower.
-  const base = rng.normalClipped(0.21, 0.045, 3);
-  return Math.max(0.1, base);
 }

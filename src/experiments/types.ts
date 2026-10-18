@@ -12,10 +12,10 @@ import type { Lab } from '@/lab/Lab';
 import type { GroupId } from '@/lab/types';
 import type { Viewport } from '@/engine/Viewport';
 import type { LabRoom } from '@/engine/LabRoom';
-import type { LabClock } from '@/physics/LabClock';
-import type { Rng } from '@/core/random';
+import type { LabClock } from '@/core/sim/LabClock';
+import type { Rng } from '@/core/math';
 import type { EventBus } from '@/core/EventBus';
-import type { FitResult } from '@/physics/statistics';
+import type { FitResult } from '@/core/math';
 
 // ---------------------------------------------------------------------------
 // Data model

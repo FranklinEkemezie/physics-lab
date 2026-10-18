@@ -9,7 +9,7 @@
 
 import { h } from './widgets';
 import type { ColumnDef, DataSet } from '@/experiments/types';
-import type { FitResult } from '@/physics/statistics';
+import type { FitResult } from '@/core/math';
 
 export interface GraphSeries {
   /** Column id plotted on x. */

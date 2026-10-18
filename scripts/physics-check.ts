@@ -18,7 +18,7 @@ import {
   parametersForLocation,
 } from '@/physics/pendulum';
 import type { PendulumParameters } from '@/physics/pendulum';
-import { linearFit } from '@/physics/statistics';
+import { linearFit } from '@/core/math';
 import { StopwatchInstrument } from '@/physics/Stopwatch';
 import { createMysteryLocation, EARTH, REACTION_MEAN_S } from '@/physics/constants';
 import {
@@ -36,7 +36,7 @@ import {
   uniformField,
 } from '@/physics/magnetism';
 import type { DipoleMagnet } from '@/physics/magnetism';
-import { Rng } from '@/core/random';
+import { Rng } from '@/core/math';
 
 export interface CheckResult {
   name: string;

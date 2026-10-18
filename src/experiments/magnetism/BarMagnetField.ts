@@ -53,7 +53,7 @@ import {
   momentFromGradient,
   tanError,
 } from '@/physics/magnetism';
-import { linearFit } from '@/physics/statistics';
+import { linearFit } from '@/core/math';
 import { button, card, note, numberField, stat, toggle } from '@/ui/widgets';
 import type { ButtonWidget, NumberFieldWidget, ToggleWidget } from '@/ui/widgets';
 

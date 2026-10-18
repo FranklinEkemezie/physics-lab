@@ -13,8 +13,9 @@
  *  3. the stopwatch's own resolution and crystal tolerance.
  */
 
-import { Rng, reactionTime } from '@/core/random';
-import { REACTION_MEAN_S, REACTION_SIGMA_S } from './constants';
+import { Rng, snap } from '@/core/math';
+import { REACTION_SIGMA_S } from './constants';
+import { reactionTime } from './measurement/reactionTime';
 
 export interface StopwatchOptions {
   /** Display resolution in seconds (0.01 s on a typical digital stopwatch). */
@@ -72,7 +73,7 @@ export class StopwatchInstrument {
 
   /** Raw elapsed time in seconds, quantised to the display resolution. */
   get elapsed(): number {
-    return quantise(this.#elapsedTrue, this.resolutionS);
+    return snap(this.#elapsedTrue, this.resolutionS);
   }
 
   /** The same instant before quantisation — the "perfect" instrument. */
@@ -165,18 +166,6 @@ export class StopwatchInstrument {
     // Reaction = population mean + this operator's personal bias + noise.
     const base = reactionTime(this.#rng) + this.operatorBiasS;
     const jitter = this.#rng.normalClipped(0, REACTION_SIGMA_S * 0.4, 2);
-    void REACTION_MEAN_S;
     return Math.max(0.08, base + jitter);
   }
-}
-
-/** Round to the stopwatch's display resolution. */
-export function quantise(seconds: number, resolution: number): number {
-  if (resolution <= 0) return seconds;
-  return Math.round(seconds / resolution) * resolution;
-}
-
-/** Format a stopwatch display: `12.34`. */
-export function formatSeconds(seconds: number, decimals = 2): string {
-  return seconds.toFixed(decimals);
 }

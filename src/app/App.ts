@@ -7,12 +7,12 @@
  */
 
 import { EventBus } from '@/core/EventBus';
-import { Rng } from '@/core/random';
+import { Rng } from '@/core/math';
 import { Viewport } from '@/engine/Viewport';
 import { LabRoom, BENCH_HEIGHT } from '@/engine/LabRoom';
 import { Lab } from '@/lab/Lab';
 import type { EquipmentDefinition } from '@/lab/types';
-import { LabClock } from '@/physics/LabClock';
+import { LabClock } from '@/core/sim/LabClock';
 import { DataStore } from '@/app/DataStore';
 import { EXPERIMENTS, findExperiment } from '@/experiments/registry';
 import type { ExperimentInfo } from '@/experiments/registry';
@@ -22,7 +22,7 @@ import { RightPanel } from '@/ui/RightPanel';
 import { ToastHost } from '@/ui/Toast';
 import { button, h, segmented } from '@/ui/widgets';
 import type { ButtonWidget, SegmentedWidget } from '@/ui/widgets';
-import { downloadTextFile } from '@/core/mathUtils';
+import { downloadTextFile } from '@/core/dom';
 
 export class App {
   #viewport: Viewport;

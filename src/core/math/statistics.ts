@@ -5,6 +5,9 @@
  * WAEC practicals are marked on how well you handle error, so the fit here
  * returns the standard error of the gradient — the number that turns
  * "g = 9.9 m/s²" into "g = 9.9 ± 0.2 m/s²".
+ *
+ * Nothing here is physics: it is the same maths a chemistry or biology
+ * practical would use.
  */
 
 export interface FitResult {
@@ -103,18 +106,4 @@ export function linearFit(xs: readonly number[], ys: readonly number[]): FitResu
 export function percentError(experimental: number, accepted: number): number {
   if (accepted === 0) return Number.NaN;
   return ((experimental - accepted) / accepted) * 100;
-}
-
-/** Format a value ± uncertainty with an appropriate number of digits. */
-export function formatWithUncertainty(value: number, uncertainty: number, unit = ''): string {
-  if (!Number.isFinite(value)) return '—';
-  if (!Number.isFinite(uncertainty) || uncertainty === 0) {
-    return `${value.toPrecision(3)}${unit ? ` ${unit}` : ''}`;
-  }
-  // Quote the uncertainty to one significant figure, then match the value.
-  const digits = Math.max(0, -Math.floor(Math.log10(Math.abs(uncertainty))));
-  const factor = 10 ** digits;
-  const roundedUncertainty = Math.round(uncertainty * factor) / factor;
-  const roundedValue = Math.round(value * factor) / factor;
-  return `${roundedValue.toFixed(digits)} ± ${roundedUncertainty.toFixed(digits)}${unit ? ` ${unit}` : ''}`;
 }
