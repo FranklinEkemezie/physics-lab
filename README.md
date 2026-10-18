@@ -8,8 +8,9 @@ in a table, plot the graph and get the value of the physical constant — with a
 honest error bar.
 
 Nothing is faked with a lookup table: the pendulum is integrated from its real
-equation of motion, so the errors you see are the errors a candidate really
-gets.
+equation of motion and the compass needle is aimed at the real resultant of the
+magnet's dipole field and the Earth's, so the errors you see are the errors a
+candidate really gets.
 
 ## Running it
 
@@ -58,6 +59,33 @@ Under *Location* you can move the lab to the Moon, Mars or Jupiter — or to
 **Planet X**, whose `g` is hidden. Measure it, then press *Reveal the true
 value* to check.
 
+## The second practical: plotting the field of a bar magnet
+
+Choose **Plotting the field of a bar magnet**. A bar magnet is pinned across a
+printed plotting sheet and the compass needle really does settle along the
+*resultant* of the magnet's dipole field and the Earth's horizontal field, so:
+
+- **Map the field.** Drag the compass anywhere and the needle follows. Press
+  *Walk one step* to advance it 1 cm along the needle, leaving a pencil mark —
+  repeated presses walk out a genuine field line. *New line* starts a fresh one.
+  (A *training-wheels* switch draws the whole line through the compass for you.)
+- **Measure the fall-off.** Put the compass on the *equatorial line* (printed
+  across the sheet) and read the distance `d` from the scale and the needle
+  deflection θ. There the magnet's field is perpendicular to the Earth's, so
+  `tan θ = B/H`, and for a dipole `B = (μ₀/4π)·m/d³`. The graph of `tan θ`
+  against `1/d³` is therefore a straight line through the origin whose gradient
+  is `(μ₀/4π)·m/H`.
+- **Find the moment.** The analysis turns the gradient into the magnet's moment
+  `m`, with an uncertainty and `r²`. The moment is randomised for every fresh
+  magnet and is not written on it — press *Reveal the true value* to check.
+- The iron-filings card can be laid over the magnet for the classic sprinkle
+  picture of the same field.
+
+Realism here: the Earth's field is always present (so the compass swings back
+to north far from the magnet), `d` is read to ±0.5 mm and θ to ±1°, error bars
+are drawn from those two numbers, and the bar is only treated as a point dipole
+beyond roughly its own length — the analysis says so when you get too close.
+
 ## What makes it realistic
 
 Every number the student reads carries the error a real measurement would:
@@ -87,8 +115,9 @@ src/
   engine/models/  procedural apparatus builders (stand, pendulum, rule, stopwatch,
                   masses & springs, optics, electricity, magnetism)
   lab/         equipment catalogue, picking, dragging, placement (Lab)
-  physics/     pendulum ODE, clock, stopwatch error model, statistics, constants
-  experiments/ the Experiment contract, the registry, and mechanics/SimplePendulum
+  physics/     pendulum ODE, magnetism (dipole + Earth field), clock, stopwatch
+               error model, statistics, constants
+  experiments/ the Experiment contract, the registry, and mechanics/ + magnetism/
   ui/          plain-DOM widget kit and the panels (table, graph, lens, toasts)
   app/         App shell (layout + wiring) and the DataStore
 ```
@@ -120,9 +149,9 @@ inspectable.
 2. Add an entry to `src/experiments/registry.ts`. Set `available: true` and
    provide `create`. Anything with `available: false` shows as "coming soon".
 
-The other practicals (Hooke's law, Ohm's law, refraction, magnetic field) are
-listed in the registry with their apparatus already modelled — they are the
-intended next steps.
+The remaining practicals (Hooke's law, Ohm's law, refraction through a glass
+block) are listed in the registry with their apparatus already modelled — they
+are the intended next steps.
 
 ## Verifying the physics
 
@@ -131,10 +160,15 @@ npm run verify
 ```
 
 `scripts/verify-physics.mjs` bundles `scripts/physics-check.ts` in memory and
-asserts that the integrated pendulum matches `2π√(L/g)`, that finite amplitude
-lengthens the period by `θ₀²/16`, that `g = 4π²/gradient` round-trips, that a
-least-squares fit of noisy `T²`–`L` data recovers `g` within 1 %, and that the
-stopwatch error averages out to a sane σ. It needs no browser.
+runs the self-checks (14 at the time of writing). For the pendulum it asserts
+that the integrated motion matches `2π√(L/g)`, that finite amplitude lengthens
+the period by `θ₀²/16`, that `g = 4π²/gradient` round-trips, that a least-squares
+fit of noisy `T²`–`L` data recovers `g` within 1 %, and that the stopwatch error
+averages out to a sane σ. For the magnet it asserts the equatorial field is
+`μ₀m/4πd³` and perpendicular to the moment, that `tan θ` follows the inverse-cube
+law, that a student's noisy graph recovers `m` within 10 %, that the needle sits
+at 45° where the two fields are equal, and that the field-line tracer stays on
+the paper. It needs no browser.
 
 ## Notes
 
