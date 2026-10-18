@@ -10,6 +10,7 @@
 import type { Experiment } from './types';
 import type { GroupId } from '@/lab/types';
 import { SimplePendulumExperiment } from './mechanics/SimplePendulum';
+import { BarMagnetFieldExperiment } from './magnetism/BarMagnetField';
 
 export interface ExperimentInfo {
   id: string;
@@ -66,10 +67,11 @@ export const EXPERIMENTS: readonly ExperimentInfo[] = [
     id: 'magnetic-field',
     title: 'Plotting the field of a bar magnet',
     group: 'magnetism',
-    summary: 'Use the plotting compass to map field lines around a bar magnet.',
-    apparatus: ['Bar magnet', 'Plotting compass', 'Iron filings card'],
-    available: false,
-    note: 'The compass already follows a field; the field model needs exposing to the UI.',
+    summary:
+      'Walk a plotting compass around a bar magnet to map the field lines, then measure the inverse-cube fall-off of the deflection and find the magnet\'s moment.',
+    apparatus: ['Bar magnet', 'Plotting compass', 'Iron filings card', 'Plotting paper'],
+    available: true,
+    create: () => new BarMagnetFieldExperiment(),
   },
 ];
 

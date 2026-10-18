@@ -596,7 +596,10 @@ const magnetism: EquipmentDefinition[] = [
     footprintM: 0.015,
     build: () => {
       const model = new PlottingCompassModel(0.011);
-      return withUpdate(model.group, (dt) => model.update(dt));
+      const group = withUpdate(model.group, (dt) => model.update(dt));
+      // Expose the model so an experiment can aim the needle at the local field.
+      group.userData.compassModel = model;
+      return group;
     },
   },
   {
