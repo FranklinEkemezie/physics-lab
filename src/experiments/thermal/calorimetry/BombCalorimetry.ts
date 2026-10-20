@@ -133,6 +133,8 @@ and that is the value to quote.`;
     specificHeatCapacityJKgK: 4180,
   };
   #state: CalorimetryState = initialCalorimetryState(this.#config);
+  /** The clock starts when the heater is first switched on. */
+  #running = false;
   /** The thermometer reading the rise is measured from (the first row). */
   #referenceReadingC: number | null = null;
   #autoRecord = true;
@@ -166,6 +168,7 @@ and that is the value to quote.`;
     };
 
     this.#state = initialCalorimetryState(this.#config);
+    this.#running = false;
     this.#referenceReadingC = null;
     this.#autoRecord = true;
     this.#nextAutoRecordS = RECORD_INTERVAL_S;
@@ -198,7 +201,9 @@ and that is the value to quote.`;
 
   override update(dt: number, services: LabServices): void {
     const step = Math.min(Math.max(dt, 0), 0.25);
-    this.#state = stepCalorimetry(this.#state, this.#config, step, this.#state.heating);
+    if (this.#running) {
+      this.#state = stepCalorimetry(this.#state, this.#config, step, this.#state.heating);
+    }
 
     this.#rig?.setReading(this.#state.readingC);
     this.#rig?.setHeating(this.#state.heating);
@@ -293,7 +298,15 @@ and that is the value to quote.`;
     const services = this.#services;
     if (!services || on === this.#state.heating) return;
 
-    this.#state = { ...this.#state, heating: on };
+    if (on && !this.#running) {
+      // The run starts now: zero the clock so t = 0 is the reading the student
+      // takes before switching on, not however long they spent inspecting the
+      // apparatus.
+      this.#running = true;
+      this.#state = { ...this.#state, timeS: 0, heating: true };
+    } else {
+      this.#state = { ...this.#state, heating: on };
+    }
 
     if (on) {
       // θ₁ at t = 0 is part of the data, not an afterthought.
@@ -364,7 +377,7 @@ and that is the value to quote.`;
       waterMassKg: this.#config.waterMassKg,
       autoRecord: this.#autoRecord,
       recorded: rows.length,
-      canRecord: !this.#timeAlreadyRecorded(Number(this.#state.timeS.toFixed(1))),
+      canRecord: this.#running && !this.#timeAlreadyRecorded(Number(this.#state.timeS.toFixed(1))),
       enoughData: this.#state.timeS >= RUN_TARGET_S,
     };
   }
