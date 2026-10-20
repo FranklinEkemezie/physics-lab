@@ -80,6 +80,13 @@ export class BenchControls {
   /** The `Lab` turns this off while it is dragging a piece of apparatus. */
   enabled = true;
 
+  /**
+   * What a plain left-drag does: look around (`'look'`) or slide along the
+   * bench (`'pan'`). Right-drag, middle-drag and Shift-drag always pan, so the
+   * explicit mode is only a convenience for people who expect a hand tool.
+   */
+  dragMode: 'look' | 'pan' = 'look';
+
   readonly #camera: THREE.PerspectiveCamera;
   readonly #dom: HTMLElement;
   readonly #disposers: (() => void)[] = [];
@@ -106,6 +113,7 @@ export class BenchControls {
   #mode: DragMode = 'none';
   #lastPointer = { x: 0, y: 0 };
   #pinchSpreadPx = 0;
+  #pinchMidpoint = { x: 0, y: 0 };
 
   readonly #raycaster = new THREE.Raycaster();
   readonly #plane = new THREE.Plane();
@@ -294,11 +302,14 @@ export class BenchControls {
 
     if (this.#pointers.size === 1) {
       // Right button, middle button or Shift means "slide", like a map.
-      this.#mode = event.button === 1 || event.button === 2 || event.shiftKey ? 'pan' : 'rotate';
+      const wantsPan =
+        event.button === 1 || event.button === 2 || event.shiftKey || this.dragMode === 'pan';
+      this.#mode = wantsPan ? 'pan' : 'rotate';
       this.#lastPointer = { x: event.clientX, y: event.clientY };
     } else if (this.#pointers.size === 2) {
       this.#mode = 'pinch';
       this.#pinchSpreadPx = this.#pointerSpread();
+      this.#pinchMidpoint = this.#pointerMidpoint();
     }
 
     event.preventDefault();
@@ -319,6 +330,12 @@ export class BenchControls {
         );
       }
       this.#pinchSpreadPx = spread;
+
+      // Two fingers also slide: whichever way the midpoint travels, the bench
+      // travels with it, exactly like dragging a map.
+      const midpoint = this.#pointerMidpoint();
+      this.#pan(midpoint.x - this.#pinchMidpoint.x, midpoint.y - this.#pinchMidpoint.y);
+      this.#pinchMidpoint = midpoint;
       return;
     }
 
@@ -467,6 +484,18 @@ export class BenchControls {
     const points = [...this.#pointers.values()];
     if (points.length < 2) return 0;
     return Math.hypot(points[0].x - points[1].x, points[0].y - points[1].y);
+  }
+
+  #pointerMidpoint(): { x: number; y: number } {
+    const points = [...this.#pointers.values()];
+    if (points.length === 0) return { x: 0, y: 0 };
+    let x = 0;
+    let y = 0;
+    for (const point of points) {
+      x += point.x;
+      y += point.y;
+    }
+    return { x: x / points.length, y: y / points.length };
   }
 }
 

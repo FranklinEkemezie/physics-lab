@@ -8,6 +8,7 @@
 
 import { EventBus } from '@/core/EventBus';
 import { Rng } from '@/core/math';
+import * as THREE from 'three';
 import { Viewport } from '@/engine/Viewport';
 import { LabRoom, BENCH_HEIGHT } from '@/engine/LabRoom';
 import { Lab } from '@/lab/Lab';
@@ -23,6 +24,10 @@ import { ToastHost } from '@/ui/Toast';
 import { button, h, segmented } from '@/ui/widgets';
 import type { ButtonWidget, SegmentedWidget } from '@/ui/widgets';
 import { downloadTextFile } from '@/core/dom';
+import { ModelGallery } from './ModelGallery';
+
+/** Remembers whether the camera toolbar was folded away. */
+const VIEWTOOLS_STORAGE_KEY = 'physics-lab.viewtools.collapsed';
 
 export class App {
   #viewport: Viewport;
@@ -184,6 +189,12 @@ export class App {
         onClick: () => this.#clearBench(),
       }).root,
       button({
+        label: 'Models',
+        glyph: '🧊',
+        title: 'Browse the reusable 3D model library',
+        onClick: () => this.#openModelGallery(),
+      }).root,
+      button({
         label: 'Help',
         glyph: '❔',
         title: 'How to use the lab',
@@ -211,7 +222,8 @@ export class App {
   }
 
   #buildViewportToolbar(): HTMLElement {
-    const row = h('div', { class: 'pl-viewtools' });
+    const shell = h('div', { class: 'pl-viewtools' });
+    const body = h('div', { class: 'pl-viewtools__body' });
 
     const lightButton: ButtonWidget = button({
       label: 'Room lights',
@@ -223,7 +235,21 @@ export class App {
       },
     });
 
-    row.append(
+    // Panning is not a secret handshake: give it a visible mode. Right-drag,
+    // middle-drag and Shift-drag still pan whichever mode is selected.
+    const dragMode = segmented<'look' | 'pan'>({
+      label: 'Drag',
+      options: [
+        { value: 'look', label: '👁 Look', title: 'Left-drag looks around the apparatus' },
+        { value: 'pan', label: '✋ Pan', title: 'Left-drag slides the view along the bench' },
+      ],
+      value: this.#viewport.controls.dragMode,
+      onChange: (value) => {
+        this.#viewport.controls.dragMode = value;
+      },
+    });
+
+    body.append(
       button({
         label: 'Front',
         glyph: '⬛',
@@ -266,9 +292,46 @@ export class App {
         if (scale > 0) this.#clock.timeScale = scale;
       },
     });
-    row.append(speed.root);
+    body.append(dragMode.root, speed.root);
 
-    return row;
+    // The toolbar sits over the bench, so let it fold away to a single tab.
+    const toggle = h(
+      'button',
+      {
+        class: 'pl-viewtools__toggle',
+        type: 'button',
+        title: 'Hide the camera tools',
+        'aria-expanded': 'true',
+      },
+      '⟨',
+    );
+
+    const setCollapsed = (collapsed: boolean): void => {
+      shell.classList.toggle('is-collapsed', collapsed);
+      toggle.textContent = collapsed ? '🎛' : '⟨';
+      toggle.title = collapsed ? 'Show the camera tools' : 'Hide the camera tools';
+      toggle.setAttribute('aria-expanded', String(!collapsed));
+      try {
+        localStorage.setItem(VIEWTOOLS_STORAGE_KEY, collapsed ? '1' : '0');
+      } catch {
+        // private mode / storage disabled: the fold still works for this visit
+      }
+    };
+
+    toggle.addEventListener('click', () => {
+      setCollapsed(!shell.classList.contains('is-collapsed'));
+    });
+
+    shell.append(toggle, body);
+    let collapsed = false;
+    try {
+      collapsed = localStorage.getItem(VIEWTOOLS_STORAGE_KEY) === '1';
+    } catch {
+      collapsed = false;
+    }
+    setCollapsed(collapsed);
+
+    return shell;
   }
 
   // -------------------------------------------------------------------------
@@ -442,8 +505,26 @@ export class App {
     controls.update();
   }
 
-  #showHelp(): void {
-    const help = h(
+  /** Open the model-library browser and let it place models on the bench. */
+  #openModelGallery(): void {
+    const gallery = new ModelGallery({
+      onPlace: (object, entry) => {
+        const placed = this.#lab.adopt(object, { definitionId: `model:${entry.id}` });
+        const position = placed.object.position;
+        this.#services.bus.emit('toast', {
+          message: `${entry.label} placed on the bench.`,
+          level: 'good',
+        });
+        this.#viewport.focusOn(
+          new THREE.Vector3(position.x, BENCH_HEIGHT + 0.18, position.z),
+          1.15,
+        );
+      },
+    });
+    gallery.open();
+  }
+
+  #showHelp(): void {    const help = h(
       'div',
       { class: 'pl-help' },
       h('h3', {}, 'How to use the lab'),
