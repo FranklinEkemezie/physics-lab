@@ -55,6 +55,15 @@ import {
   refractiveIndexFromGradient,
   traceBlockRay,
 } from '@/physics/optics';
+import {
+  initialCalorimetryState,
+  specificHeatFromEnergy,
+  specificHeatFromGradient,
+  stepCalorimetry,
+  thermometerReadingC,
+  type CalorimetryConfig,
+  type CalorimetryState,
+} from '@/physics/thermal';
 
 export interface CheckResult {
   name: string;
@@ -523,6 +532,129 @@ export function runChecks(): CheckResult[] {
       'the critical angle of glass (n = 1.5) is about 41.8°',
       Math.abs(criticalDeg - 41.81) < 0.05,
       `c = ${criticalDeg.toFixed(2)}°`,
+    );
+  }
+
+  // 22. With no losses, the electrical energy all goes into the water.
+  {
+    const config: CalorimetryConfig = {
+      voltageV: 12,
+      currentA: 3.5,
+      waterMassKg: 0.4,
+      specificHeatCapacityJKgK: 4180,
+    };
+    let state = initialCalorimetryState(config);
+    for (let second = 0; second < 300; second += 1) {
+      state = stepCalorimetry(state, config, 1, true);
+    }
+    const expected = (12 * 3.5 * 300) / (0.4 * 4180);
+    const error = Math.abs(state.temperatureC - 25 - expected);
+    add(
+      'a lagged calorimeter converts VIt into m c Δθ exactly',
+      error < 1e-9,
+      `Δθ = ${(state.temperatureC - 25).toFixed(6)} K vs ${expected.toFixed(6)} K`,
+    );
+  }
+
+  // 23. With the heater off, the calorimeter cools towards room temperature.
+  {
+    const config: CalorimetryConfig = {
+      voltageV: 12,
+      currentA: 3.5,
+      waterMassKg: 0.4,
+      specificHeatCapacityJKgK: 4180,
+      coolingCoefficientWK: 0.7,
+      ambientC: 20,
+      initialC: 30,
+    };
+    let state = initialCalorimetryState(config);
+    for (let step = 0; step < 120; step += 1) {
+      state = stepCalorimetry(state, config, 0.5, false);
+    }
+    const expected = 20 + 10 * Math.exp((-0.7 / (0.4 * 4180)) * 60);
+    add(
+      "Newton cooling brings a warm calorimeter back towards room temperature",
+      Math.abs(state.temperatureC - expected) < 1e-9,
+      `θ(60 s) = ${state.temperatureC.toFixed(4)} °C vs ${expected.toFixed(4)} °C`,
+    );
+  }
+
+  // 24. The thermometer lags the water by about τ × (dθ/dt).
+  {
+    const config: CalorimetryConfig = {
+      voltageV: 12,
+      currentA: 3.5,
+      waterMassKg: 0.4,
+      specificHeatCapacityJKgK: 4180,
+      thermometerTauS: 1.5,
+    };
+    let state = initialCalorimetryState(config);
+    for (let step = 0; step < 1200; step += 1) {
+      state = stepCalorimetry(state, config, 0.05, true);
+    }
+    const gradient = 12 * 3.5 / (0.4 * 4180);
+    const expectedLag = 1.5 * gradient;
+    const lag = state.temperatureC - state.readingC;
+    const error = Math.abs(lag - expectedLag) / expectedLag;
+    add(
+      'a thermometer with τ = 1.5 s lags the water by τ × gradient',
+      error < 0.03,
+      `lag = ${lag.toFixed(4)} K vs ${expectedLag.toFixed(4)} K (${(error * 100).toFixed(1)} %)`,
+    );
+  }
+
+  // 25. A student's initial-gradient graph recovers c, and shows the endpoint
+  //     formula reading high because of cooling.
+  {
+    const config: CalorimetryConfig = {
+      voltageV: 12,
+      currentA: 3.5,
+      waterMassKg: 0.4,
+      specificHeatCapacityJKgK: 4180,
+      vesselHeatCapacityJK: 30,
+      coolingCoefficientWK: 0.7,
+      ambientC: 20.5,
+      initialC: 21.2,
+      thermometerTauS: 1.5,
+    };
+    let state: CalorimetryState = initialCalorimetryState(config);
+    const initialReading = thermometerReadingC(state);
+    const times: number[] = [0];
+    const rises: number[] = [0];
+    for (let second = 1; second <= 300; second += 1) {
+      state = stepCalorimetry(state, config, 1, true);
+      if (second % 30 === 0) {
+        times.push(second);
+        rises.push(thermometerReadingC(state) - initialReading);
+      }
+    }
+
+    const window = times
+      .map((time, index) => ({ time, rise: rises[index] }))
+      .filter((point) => point.time <= 90);
+    const fit = linearFit(
+      window.map((point) => point.time),
+      window.map((point) => point.rise),
+    );
+    const gradientC = fit ? specificHeatFromGradient(12, 3.5, 0.4, fit.slope) : Number.NaN;
+    const error = Math.abs(gradientC - 4180) / 4180;
+
+    add(
+      "a student's initial-gradient value is within 10 % of the true c",
+      fit !== null && error < 0.1,
+      fit
+        ? `c = ${gradientC.toFixed(0)} J/kg K vs 4180 (${(error * 100).toFixed(1)} %), gradient = ${fit.slope.toFixed(5)} K/s`
+        : 'no fit produced',
+    );
+
+    const endpointC = specificHeatFromEnergy(12, 3.5, 300, 0.4, rises[rises.length - 1]);
+    add(
+      'the endpoint formula reads higher than the initial gradient, because of cooling',
+      endpointC > gradientC,
+      `endpoint ${endpointC.toFixed(0)} vs gradient ${gradientC.toFixed(0)} J/kg K (${(
+        ((endpointC - gradientC) / gradientC) *
+        100
+      ).toFixed(1)} % higher)`,
     );
   }
 

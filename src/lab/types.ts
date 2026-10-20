@@ -6,7 +6,7 @@
 import type * as THREE from 'three';
 
 /** The four practical groupings used in the sidebar. */
-export type GroupId = 'mechanics' | 'optics' | 'electricity' | 'magnetism';
+export type GroupId = 'mechanics' | 'optics' | 'electricity' | 'magnetism' | 'thermal';
 
 export interface GroupDefinition {
   id: GroupId;
@@ -47,6 +47,13 @@ export const GROUPS: readonly GroupDefinition[] = [
     blurb: 'Fields, poles, induction and compasses.',
     glyph: '🧲',
     accent: '#e05a5a',
+  },
+  {
+    id: 'thermal',
+    label: 'Thermal',
+    blurb: 'Heat, temperature and specific heat capacity.',
+    glyph: '🌡️',
+    accent: '#e08a4a',
   },
 ] as const;
 

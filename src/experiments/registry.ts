@@ -14,6 +14,7 @@ import { HookesLawExperiment } from './mechanics/hookes';
 import { OhmsLawExperiment } from './electricity/ohmsLaw';
 import { RefractionExperiment } from './optics/refraction';
 import { BarMagnetFieldExperiment } from './magnetism/BarMagnetField';
+import { BombCalorimetryExperiment } from './thermal/calorimetry';
 
 export interface ExperimentInfo {
   id: string;
@@ -75,6 +76,16 @@ export const EXPERIMENTS: readonly ExperimentInfo[] = [
     apparatus: ['Bar magnet', 'Plotting compass', 'Iron filings card', 'Plotting paper'],
     available: true,
     create: () => new BarMagnetFieldExperiment(),
+  },
+  {
+    id: 'bomb-calorimetry',
+    title: 'Specific heat capacity — bomb calorimeter',
+    group: 'thermal',
+    summary:
+      'Heat water in a bomb calorimeter with an electric heater, record the temperature every 30 s, and find c from the initial gradient of the Δθ–t graph.',
+    apparatus: ['Bomb calorimeter', 'Thermometer', 'Power supply', 'Connecting leads', 'Stopwatch', 'Balance'],
+    available: true,
+    create: () => new BombCalorimetryExperiment(),
   },
 ];
 

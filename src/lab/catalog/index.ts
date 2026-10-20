@@ -16,6 +16,7 @@ import { MECHANICS_EQUIPMENT } from './mechanics';
 import { OPTICS_EQUIPMENT } from './optics';
 import { ELECTRICITY_EQUIPMENT } from './electricity';
 import { MAGNETISM_EQUIPMENT } from './magnetism';
+import { THERMAL_EQUIPMENT } from './thermal';
 
 /** Every definition, in sidebar order. */
 export const CATALOG: readonly EquipmentDefinition[] = [
@@ -23,6 +24,7 @@ export const CATALOG: readonly EquipmentDefinition[] = [
   ...OPTICS_EQUIPMENT,
   ...ELECTRICITY_EQUIPMENT,
   ...MAGNETISM_EQUIPMENT,
+  ...THERMAL_EQUIPMENT,
 ];
 
 const byId = new Map<string, EquipmentDefinition>(CATALOG.map((definition) => [definition.id, definition]));
