@@ -94,8 +94,10 @@ export class SpringRig {
 
     this.parts = { stand, bossHead, clamp, hanger, rule, ruleFoot };
 
-    // This assembly is a fixed piece of apparatus: none of it is dragged around.
+    // This assembly is a fixed piece of apparatus: none of it is dragged around
+    // — except the hanger, which is the handle you pull to feel the spring.
     for (const part of this.#spawned) part.object.userData.dragMode = 'none';
+    this.parts.hanger.object.userData.dragMode = 'vertical';
 
     this.#spring = new SpringModel({
       naturalLengthM: spec.naturalLengthM,
@@ -119,6 +121,30 @@ export class SpringRig {
   /** Height above the bench of the pointer, in metres — the reading. */
   get fiducialHeightAboveBenchM(): number {
     return this.#topY - this.#coilHeightM() - BENCH_HEIGHT;
+  }
+
+  /** Current total length of the spring (coil + hooks), in metres. */
+  get currentLengthM(): number {
+    return this.#currentLengthM;
+  }
+
+  /** World height at which the spring is pinned to the clamp, in metres. */
+  get topY(): number {
+    return this.#topY;
+  }
+
+  /**
+   * Longest the spring can be pulled by hand. Pulling past this would take it
+   * past its elastic limit, so the handle simply stops.
+   */
+  get maxManualLengthM(): number {
+    return this.spec.naturalLengthM * 2.2;
+  }
+
+  /** Pull the spring directly to a length (used while the hanger is dragged). */
+  dragToLength(totalLengthM: number): void {
+    this.setSpringLength(totalLengthM);
+    this.snapToTarget();
   }
 
   /** True once the spring has stopped moving. */

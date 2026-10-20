@@ -99,6 +99,8 @@ Loaded beyond the elastic limit the spring yields: the gradient falls, the line 
   #masses: number[] = [];
   #zeroReadingM = 0;
   #refreshControls: (() => void) | null = null;
+  /** True while the student is holding the hanger and stretching the spring. */
+  #manualDragging = false;
 
   setup(services: LabServices): void {
     this.#services = services;
@@ -112,6 +114,7 @@ Loaded beyond the elastic limit the spring yields: the gradient falls, the line 
     };
     this.#masses = [];
     this.#refreshControls = null;
+    this.#manualDragging = false;
 
     const rig = new SpringRig(services.lab, this.#spring);
     this.#rig = rig;
@@ -119,7 +122,10 @@ Loaded beyond the elastic limit the spring yields: the gradient falls, the line 
       rig.dispose();
       this.#rig = null;
       this.#refreshControls = null;
+      this.#manualDragging = false;
     });
+
+    this.#bindBench(services);
 
     // Zero the pointer with nothing but the hanger hanging on the spring.
     this.#applyLoad();
@@ -127,7 +133,7 @@ Loaded beyond the elastic limit the spring yields: the gradient falls, the line 
     this.#zeroReadingM = rig.fiducialHeightAboveBenchM;
 
     services.bus.emit('coach:say', {
-      text: 'Hang a mass, wait for the spring to settle, then record the pointer reading.',
+      text: 'Hang a mass, wait for the spring to settle, then record the pointer reading. You can also drag the hanger down to feel the spring stretch.',
     });
   }
 
@@ -148,7 +154,9 @@ Loaded beyond the elastic limit the spring yields: the gradient falls, the line 
     ];
 
     let hint: string;
-    if (this.#masses.length === 0) {
+    if (this.#manualDragging) {
+      hint = 'You are holding the spring — let go and let it settle before reading.';
+    } else if (this.#masses.length === 0) {
       hint = 'Hang a slotted mass on the hanger, then let the spring come to rest.';
     } else if (!snapshot.settled) {
       hint = 'The pointer is still moving — wait for the spring to settle.';
@@ -210,6 +218,41 @@ Loaded beyond the elastic limit the spring yields: the gradient falls, the line 
   // -------------------------------------------------------------------------
   // Internal bookkeeping
   // -------------------------------------------------------------------------
+
+  /**
+   * The hanger is a handle: pull it down and the spring stretches under your
+   * hand. Release it and it settles to whatever length the hanging masses
+   * demand — which is exactly the length the practical is about.
+   */
+  #bindBench(services: LabServices): void {
+    const { lab, bus } = services;
+
+    this.onDispose(
+      lab.bus.on('object:dragged', (event) => {
+        const rig = this.#rig;
+        if (!rig || event.instanceId !== rig.parts.hanger.instanceId) return;
+
+        this.#manualDragging = true;
+        const wantedM = rig.topY - (event.object.position.y + 0.028);
+        const minM = rig.spec.naturalLengthM * 0.55;
+        rig.dragToLength(Math.min(Math.max(wantedM, minM), rig.maxManualLengthM));
+      }),
+    );
+
+    this.onDispose(
+      lab.bus.on('object:dragEnd', (event) => {
+        const rig = this.#rig;
+        if (!rig || event.instanceId !== rig.parts.hanger.instanceId) return;
+        if (!this.#manualDragging) return;
+
+        this.#manualDragging = false;
+        this.#applyLoad();
+        bus.emit('coach:say', {
+          text: 'Released — the spring settles back to the length the hanging masses demand.',
+        });
+      }),
+    );
+  }
 
   #totalSlottedKg(): number {
     return this.#masses.reduce((sum, grams) => sum + grams, 0) / 1000;
@@ -316,9 +359,9 @@ Loaded beyond the elastic limit the spring yields: the gradient falls, the line 
       slottedLoadN: this.#totalSlottedKg() * STANDARD_G,
       totalLoadN,
       extensionM: this.#trueExtensionM(),
-      settled: rig.settled,
+      settled: rig.settled && !this.#manualDragging,
       pastLimit: totalLoadN > this.#spring.elasticLimitN,
-      canRecord: this.#masses.length > 0 && rig.settled,
+      canRecord: this.#masses.length > 0 && rig.settled && !this.#manualDragging,
       recorded,
     };
   }
