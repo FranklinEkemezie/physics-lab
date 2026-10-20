@@ -24,32 +24,31 @@ export class MultimeterModel {
     const width = 0.086;
     const height = 0.17;
     const depth = 0.03;
+    // Clear the bevelled case face (see the analogue meter for the same fix).
+    const faceZ = depth / 2 + 0.006;
     const body = meshOf(roundedBox(width, height, depth, 0.008), Materials.paint('#d9a02b', 0.45), 'Body');
-    body.rotation.x = -Math.PI / 2 - THREE.MathUtils.degToRad(12);
-    body.position.set(0, height / 2, depth * 0.12);
+    body.position.set(0, height / 2, 0);
     this.group.add(body);
 
     const screen = new THREE.Mesh(new THREE.PlaneGeometry(width * 0.72, height * 0.24), this.#panel.material());
     screen.name = 'Lcd';
-    screen.rotation.x = -THREE.MathUtils.degToRad(12);
-    screen.position.set(0, height * 0.8, depth / 2 + 0.0015);
+    screen.position.set(0, height * 0.8, faceZ);
     this.group.add(screen);
 
     const dial = meshOf(new THREE.CylinderGeometry(width * 0.24, width * 0.24, 0.008, 28), Materials.paint('#2b2f33', 0.5), 'Dial');
-    dial.rotation.x = Math.PI / 2 - THREE.MathUtils.degToRad(12);
-    dial.position.set(0, height * 0.53, depth / 2 + 0.002);
+    dial.rotation.x = Math.PI / 2;
+    dial.position.set(0, height * 0.53, faceZ);
     this.group.add(dial);
 
     const marker = meshOf(new THREE.BoxGeometry(0.002, width * 0.2, 0.003), Materials.paint('#e8e3d6', 0.4), 'DialMarker');
-    marker.rotation.x = -THREE.MathUtils.degToRad(12);
-    marker.position.set(0, height * 0.45, depth / 2 + 0.006);
+    marker.position.set(0, height * 0.45, faceZ + 0.004);
     this.group.add(marker);
 
     const socketGeometry = new THREE.CylinderGeometry(0.005, 0.005, 0.004, 14);
     for (const [i, colour] of ['#1f2226', '#c0392b', '#c0392b'].entries()) {
       const socket = meshOf(socketGeometry, Materials.paint(colour, 0.5), 'Socket');
-      socket.rotation.x = Math.PI / 2 - THREE.MathUtils.degToRad(12);
-      socket.position.set((i - 1) * width * 0.28, height * 0.1, depth / 2 + 0.002);
+      socket.rotation.x = Math.PI / 2;
+      socket.position.set((i - 1) * width * 0.28, height * 0.1, faceZ);
       this.group.add(socket);
     }
 

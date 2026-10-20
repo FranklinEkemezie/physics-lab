@@ -62,7 +62,8 @@ export function buildMetreRule(options: MetreRuleOptions = {}): THREE.Group {
     widthM = 0.028,
     thicknessM = 0.005,
     zeroAt = 'bottom',
-    bodyColor = '#efe6cd',
+    // The conventional school rule is a warm manila yellow, not ivory.
+    bodyColor = '#f0d26a',
     transparent = false,
     label = 'METRE RULE',
   } = options;
@@ -188,7 +189,7 @@ export function buildFlatRule(options: { lengthM?: number; widthM?: number } = {
   group.name = 'FlatRule';
 
   const thicknessM = 0.004;
-  const bodyMaterial = new THREE.MeshStandardMaterial({ color: 0xefe6cd, roughness: 0.6 });
+  const bodyMaterial = new THREE.MeshStandardMaterial({ color: 0xf0d26a, roughness: 0.6 });
   const body = meshOf(roundedBox(lengthM, widthM, thicknessM, thicknessM), bodyMaterial, 'RuleBody');
   // roundedBox extrudes along +Z, so rotate it flat on the bench.
   body.rotation.x = -Math.PI / 2;
@@ -202,6 +203,7 @@ export function buildFlatRule(options: { lengthM?: number; widthM?: number } = {
     majorEveryMm: 10,
     minorPerMajor: 10,
     numbers: true,
+    background: '#f0d26a',
   });
 
   const face = new THREE.Mesh(

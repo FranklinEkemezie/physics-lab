@@ -48,13 +48,27 @@ export class MeterModel {
     const width = 0.115;
     const height = 0.092;
     const depth = 0.052;
+    // The rounded case's bevel stands proud of its nominal depth, so the dial
+    // has to sit just beyond it — otherwise it renders inside the box.
+    const faceZ = depth / 2 + 0.006;
 
-    const caseMaterial = Materials.enamel();
+    // A school meter is a dark bakelite case with a cream dial — not a white
+    // box. The case stands upright; the dial and needle sit on its front face.
+    const caseMaterial = Materials.paint('#25292e', 0.5);
     const body = meshOf(roundedBox(width, height, depth, 0.008), caseMaterial, 'Case');
-    // Lab meters lean back ~18° so you can read them from a normal seat.
-    body.rotation.x = -Math.PI / 2 - THREE.MathUtils.degToRad(18);
-    body.position.set(0, height / 2, depth * 0.18);
+    body.position.set(0, height / 2, 0);
     this.group.add(body);
+
+    // Chrome bezel behind the dial, so the cream face reads as an instrument
+    // rather than a sticker.
+    const dialSize = Math.min(width * 0.78, height * 0.78);
+    const bezel = meshOf(
+      new THREE.PlaneGeometry(dialSize * 1.1, dialSize * 1.1),
+      Materials.chrome(),
+      'Bezel',
+    );
+    bezel.position.set(0, height * 0.55, faceZ + 0.0004);
+    this.group.add(bezel);
 
     const dialTexture = makeDialTexture({
       label,
@@ -65,46 +79,64 @@ export class MeterModel {
     });
 
     const dial = new THREE.Mesh(
-      new THREE.PlaneGeometry(width * 0.78, width * 0.78),
+      new THREE.PlaneGeometry(dialSize, dialSize),
       new THREE.MeshStandardMaterial({ map: dialTexture, roughness: 0.55 }),
     );
     dial.name = 'Dial';
-    dial.rotation.x = -THREE.MathUtils.degToRad(18);
-    dial.position.set(0, height * 0.53, depth / 2 + 0.0015);
+    dial.position.set(0, height * 0.55, faceZ + 0.0012);
     this.group.add(dial);
 
-    // Needle: pivot at the dial centre, tip sweeping ±60°.
-    const needleLength = width * 0.62;
-    const needleGeometry = new THREE.BoxGeometry(0.0009, needleLength, 0.0009);
+    // Needle: a short, tapered blade pivoting near the bottom of the dial. A
+    // real pointer is broad at the hub and comes to a point — reading it is
+    // meant to be easy, not a squint at a hair.
+    const needleLength = dialSize * 0.52;
+    const needleGeometry = new THREE.CylinderGeometry(0.00045, 0.0022, needleLength, 4, 1);
     needleGeometry.translate(0, needleLength / 2, 0);
-    const needleMaterial = new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: 0.4, metalness: 0.3 });
+    const needleMaterial = new THREE.MeshStandardMaterial({
+      color: 0x141414,
+      roughness: 0.35,
+      metalness: 0.35,
+    });
     this.#needle = new THREE.Mesh(needleGeometry, needleMaterial);
     this.#needle.name = 'Needle';
-    this.#needle.position.set(0, height * 0.42, depth / 2 + 0.004);
-    this.#needle.rotation.x = -THREE.MathUtils.degToRad(18);
+    this.#needle.position.set(0, height * 0.34, faceZ + 0.0035);
     this.group.add(this.#needle);
+
+    // The stub behind the pivot is the counterweight that balances the blade.
+    const counterweight = meshOf(
+      new THREE.BoxGeometry(0.0024, needleLength * 0.28, 0.0018),
+      needleMaterial,
+      'NeedleCounterweight',
+    );
+    counterweight.position.set(0, -needleLength * 0.14, 0);
+    this.#needle.add(counterweight);
+
+    // Pivot boss.
+    const hub = meshOf(new THREE.CylinderGeometry(0.0035, 0.0035, 0.0025, 18), Materials.blackSteel(), 'NeedleHub');
+    hub.rotation.x = Math.PI / 2;
+    hub.position.set(0, height * 0.34, faceZ + 0.0045);
+    this.group.add(hub);
 
     // Glossy cover glass.
     const glassCover = new THREE.Mesh(
-      new THREE.PlaneGeometry(width * 0.86, width * 0.86),
+      new THREE.PlaneGeometry(width * 0.86, height * 0.84),
       new THREE.MeshPhysicalMaterial({
         color: 0xffffff,
         transparent: true,
-        opacity: 0.13,
+        opacity: 0.1,
         roughness: 0.02,
         metalness: 0,
         transmission: 0.9,
       }),
     );
-    glassCover.rotation.x = -THREE.MathUtils.degToRad(18);
-    glassCover.position.set(0, height * 0.53, depth / 2 + 0.006);
+    glassCover.position.set(0, height * 0.55, faceZ + 0.0055);
     glassCover.name = 'CoverGlass';
     this.group.add(glassCover);
 
     // Zero-adjust screw, a lovely period detail.
     const zeroScrew = meshOf(new THREE.CylinderGeometry(0.005, 0.005, 0.004, 16), Materials.blackSteel(), 'ZeroScrew');
-    zeroScrew.rotation.x = Math.PI / 2 - THREE.MathUtils.degToRad(18);
-    zeroScrew.position.set(-width * 0.33, height * 0.3, depth / 2 + 0.002);
+    zeroScrew.rotation.x = Math.PI / 2;
+    zeroScrew.position.set(-width * 0.35, height * 0.18, faceZ + 0.002);
     this.group.add(zeroScrew);
 
     // Binding posts along the bottom front edge.
@@ -112,11 +144,11 @@ export class MeterModel {
     for (let i = 0; i < terminals; i += 1) {
       const post = meshOf(postGeometry, Materials.agedBrass(), 'Terminal');
       const spread = terminals === 1 ? 0 : (i / Math.max(1, terminals - 1) - 0.5) * width * 0.6;
-      post.position.set(spread, 0.008, depth * 0.42);
+      post.position.set(spread, 0.008, faceZ - 0.002);
       this.group.add(post);
       const cap = meshOf(new THREE.TorusGeometry(0.0055, 0.0016, 8, 18), Materials.paint(i === 0 ? '#c0392b' : '#1f2226', 0.5), 'TerminalCap');
       cap.rotation.x = Math.PI / 2;
-      cap.position.set(spread, 0.013, depth * 0.42);
+      cap.position.set(spread, 0.013, faceZ - 0.002);
       this.group.add(cap);
     }
 
