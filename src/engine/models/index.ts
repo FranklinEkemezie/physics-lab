@@ -14,3 +14,4 @@ export * from './pendulum';
 export * from './rule';
 export * from './stand';
 export * from './stopwatch';
+export * from './library';

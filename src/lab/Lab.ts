@@ -132,6 +132,44 @@ export class Lab {
     return placed;
   }
 
+  /**
+   * Adopt an externally built object as a lab item.
+   *
+   * The model library builds plain Three.js objects that know nothing about the
+   * catalogue. `adopt` gives one a lab identity so it can be picked, dragged
+   * and disposed like any other piece of apparatus.
+   */
+  adopt(
+    object: THREE.Object3D,
+    options: SpawnOptions & { definitionId?: string } = {},
+  ): PlacedObject {
+    const definitionId = options.definitionId ?? 'external-model';
+    const instanceId = this.#nextInstanceId(definitionId);
+
+    object.userData.labInstanceId = instanceId;
+    object.userData.definitionId = definitionId;
+    object.userData.dragMode ??= 'bench';
+
+    const position = options.position ?? this.#findFreeSlot(0.1);
+    object.position.copy(position);
+    object.position.y = Math.max(object.position.y, BENCH_HEIGHT);
+    if (options.rotationY !== undefined) object.rotation.y = options.rotationY;
+    if (options.scale !== undefined) {
+      if (typeof options.scale === 'number') object.scale.setScalar(options.scale);
+      else object.scale.copy(options.scale);
+    }
+
+    this.root.add(object);
+    const placed: PlacedObject = { instanceId, definitionId, object };
+    this.#objects.set(instanceId, placed);
+    object.traverse((child) => {
+      child.userData.labInstanceId = instanceId;
+    });
+
+    this.bus.emit('object:spawned', placed);
+    return placed;
+  }
+
   /** Remove a single placed object. */
   remove(instanceId: string): void {
     const placed = this.#objects.get(instanceId);
