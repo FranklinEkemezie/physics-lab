@@ -104,12 +104,13 @@ export class LabRoom {
     group.name = 'Bench';
 
     const topThickness = 0.055;
+    // `roundedBox` is already a box of exactly (width, height, depth) with its
+    // faces square to the axes, so the top goes straight on — no rotation.
     const top = meshOf(
       roundedBox(BENCH_HALF_WIDTH * 2, topThickness, BENCH_HALF_DEPTH * 2, 0.012),
       Materials.wood(),
       'BenchTop',
     );
-    top.rotation.x = Math.PI / 2; // extrude is along +z, lay it flat
     top.position.y = BENCH_HEIGHT - topThickness / 2;
 
     // Dark hardboard inlay in the middle of the bench (common in school labs).
