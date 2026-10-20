@@ -314,6 +314,52 @@ code,
   margin: 0;
 }
 
+/* Camera hint: name the gestures once, then fade out of the way. */
+.pl-camhint {
+  position: absolute;
+  left: 50%;
+  bottom: 14px;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0;
+  max-width: min(720px, calc(100% - 24px));
+  padding: 7px 14px;
+  border-radius: 999px;
+  background: rgba(13, 17, 25, 0.78);
+  border: 1px solid var(--pl-border);
+  color: var(--pl-text-dim);
+  font-size: 11.5px;
+  line-height: 1.3;
+  pointer-events: none;
+  backdrop-filter: blur(6px);
+  animation: pl-camhint-fade 0.9s ease 9s forwards;
+}
+
+.pl-camhint span {
+  padding: 0 11px;
+  white-space: nowrap;
+}
+
+.pl-camhint span + span {
+  border-left: 1px solid rgba(255, 255, 255, 0.14);
+}
+
+@keyframes pl-camhint-fade {
+  to {
+    opacity: 0;
+    visibility: hidden;
+  }
+}
+
+@media (max-width: 860px) {
+  .pl-camhint {
+    display: none;
+  }
+}
+
 /* --------------------------------------------------------------------------
    Buttons
    -------------------------------------------------------------------------- */

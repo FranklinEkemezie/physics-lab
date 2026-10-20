@@ -35,6 +35,24 @@ Other scripts:
 | `npm run typecheck` | `tsc --noEmit`.                                        |
 | `npm run verify`  | Run the physics self-checks (no browser needed).         |
 
+### Moving around
+
+The camera is a person standing at the bench, not a turntable. It pivots about
+a point *on the bench*, next to the apparatus:
+
+| Gesture                    | What it does                                              |
+| -------------------------- | --------------------------------------------------------- |
+| Drag                       | Look around the apparatus                                  |
+| Scroll, or pinch           | Step towards whatever the cursor is over                   |
+| Shift-drag, or right-drag  | Slide along the bench                                      |
+| Double-click apparatus     | Step up to it                                              |
+| Arrow keys, `+` / `-`      | Nudge the view                                             |
+| `Home`, or *Reset view*    | Step back to the bench                                     |
+
+The viewpoint is clamped to human ones: it never drops below the bench top or
+climbs to a map view, and the pivot stays over the bench, so you cannot orbit
+off into empty floor.
+
 ## The flagship practical
 
 **Simple pendulum — determine `g`.** Choose it from the *Practical* menu at the

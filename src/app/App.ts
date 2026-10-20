@@ -82,7 +82,19 @@ export class App {
     );
 
     const viewportTools = this.#buildViewportToolbar();
-    stage.append(hud, viewportTools);
+
+    // One-time camera hint. The bench controls are a gesture set, so name the
+    // gestures once and then fade out (the fade is pure CSS).
+    const cameraHint = h(
+      'div',
+      { class: 'pl-camhint', 'aria-hidden': 'true' },
+      h('span', {}, 'Drag to look around'),
+      h('span', {}, 'Scroll to step in'),
+      h('span', {}, 'Shift-drag to slide'),
+      h('span', {}, 'Double-click apparatus to inspect'),
+    );
+
+    stage.append(hud, viewportTools, cameraHint);
 
     this.#sidebar = new Sidebar({
       onAdd: (definition) => this.#addEquipment(definition),
@@ -229,6 +241,12 @@ export class App {
         glyph: '⬒',
         title: 'Look down on the bench',
         onClick: () => this.#setCamera('top'),
+      }).root,
+      button({
+        label: 'Reset view',
+        glyph: '🏠',
+        title: 'Step back to the bench (Home)',
+        onClick: () => this.#viewport.resetView(),
       }).root,
       lightButton.root,
     );
@@ -433,6 +451,12 @@ export class App {
         'ul',
         { class: 'pl-list' },
         h('li', {}, 'Choose a practical from the menu at the top. The apparatus is placed for you.'),
+        h(
+          'li',
+          {},
+          'You are standing at the bench: drag to look around, scroll to step towards what you point at, ' +
+            'Shift-drag to slide along the bench. Home (or Reset view) steps back.',
+        ),
         h('li', {}, 'Drag apparatus to move it. Drag the red arrow on the bob to set the swing, then let go.'),
         h('li', {}, 'Drag the boss head up or down the rod to raise or lower the pendulum.'),
         h('li', {}, 'Read lengths from the magnified rule in the Practical tab — type what you see.'),

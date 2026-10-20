@@ -9,6 +9,7 @@
  * could drive a chemistry bench or a geometry demo by swapping the catalogue.
  */
 
+export * from './BenchControls';
 export * from './CanvasPanel';
 export * from './LabRoom';
 export * from './Viewport';

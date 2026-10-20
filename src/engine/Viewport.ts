@@ -6,15 +6,15 @@
  */
 
 import * as THREE from 'three';
-import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
+import { BenchControls } from './BenchControls';
 
 export type FrameUpdater = (dt: number, elapsed: number, camera: THREE.PerspectiveCamera) => void;
 
 export interface ViewportOptions {
   /** Cap on devicePixelRatio; 2 keeps retina crisp without melting laptops. */
   maxPixelRatio?: number;
-  /** Initial camera target. */
+  /** Initial look-at point. Defaults to just above the middle of the bench. */
   target?: THREE.Vector3;
 }
 
@@ -22,7 +22,7 @@ export class Viewport {
   readonly renderer: THREE.WebGLRenderer;
   readonly scene: THREE.Scene;
   readonly camera: THREE.PerspectiveCamera;
-  readonly controls: OrbitControls;
+  readonly controls: BenchControls;
 
   /** Objects the UI should not pick/select (helpers, gizmos...). */
   readonly helpers = new THREE.Group();
@@ -35,7 +35,7 @@ export class Viewport {
   #environmentTarget: THREE.WebGLRenderTarget | null = null;
 
   constructor(container: HTMLElement, options: ViewportOptions = {}) {
-    const { maxPixelRatio = 2, target = new THREE.Vector3(0, 1.15, 0) } = options;
+    const { maxPixelRatio = 2, target } = options;
 
     this.renderer = new THREE.WebGLRenderer({
       antialias: true,
@@ -58,20 +58,17 @@ export class Viewport {
     this.scene.background = new THREE.Color(0x0f1115);
     this.scene.fog = new THREE.Fog(0x0f1115, 14, 34);
 
-    this.camera = new THREE.PerspectiveCamera(38, 1, 0.05, 120);
-    this.camera.position.set(1.9, 1.75, 2.35);
+    // 46° is closer to how much of a bench a standing person takes in than the
+    // cinematic 38° it used to be; the apparatus fits without stepping back.
+    this.camera = new THREE.PerspectiveCamera(46, 1, 0.05, 120);
 
-    this.controls = new OrbitControls(this.camera, this.renderer.domElement);
-    this.controls.target.copy(target);
-    this.controls.enableDamping = true;
-    this.controls.dampingFactor = 0.075;
-    this.controls.minDistance = 0.35;
-    this.controls.maxDistance = 12;
-    this.controls.maxPolarAngle = Math.PI * 0.495; // never dive below the bench
-    this.controls.minPolarAngle = 0.15;
-    this.controls.zoomSpeed = 0.9;
-    this.controls.panSpeed = 0.7;
-    this.controls.update();
+    // The camera behaves like someone standing at the bench: it turns about a
+    // point on the bench surface rather than swinging the room round its middle.
+    this.controls = new BenchControls(
+      this.camera,
+      this.renderer.domElement,
+      target ? { target } : {},
+    );
 
     this.scene.add(this.helpers);
 
@@ -117,22 +114,21 @@ export class Viewport {
 
     for (const updater of this.#updaters) updater(dt, this.#elapsed, this.camera);
 
-    this.controls.update();
+    this.controls.update(dt);
     this.renderer.render(this.scene, this.camera);
   }
 
   /**
-   * Smoothly move the orbit target towards `point` and pull the camera to a
-   * comfortable distance. Used by "focus on apparatus" buttons.
+   * Glide to look at `point`, settling `distance` metres away when given. Used
+   * by "focus on apparatus" and by each practical when it sets itself up.
    */
   focusOn(point: THREE.Vector3, distance?: number): void {
-    const offset = new THREE.Vector3().subVectors(this.camera.position, this.controls.target);
-    const currentDistance = offset.length();
-    const wanted = distance ?? Math.min(Math.max(currentDistance, 0.8), 4);
+    this.controls.focusOn(point, distance);
+  }
 
-    this.controls.target.copy(point);
-    this.camera.position.copy(point).add(offset.setLength(wanted));
-    this.controls.update();
+  /** Glide back to the standing view in front of the bench. */
+  resetView(): void {
+    this.controls.resetView();
   }
 
   /** Convert a world position into CSS pixel coordinates inside the canvas. */
