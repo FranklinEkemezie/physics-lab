@@ -94,8 +94,8 @@ export class App {
       'div',
       { class: 'pl-camhint', 'aria-hidden': 'true' },
       h('span', {}, 'Drag to look around'),
+      h('span', {}, '✋ Pan, or shift-drag, to slide'),
       h('span', {}, 'Scroll to step in'),
-      h('span', {}, 'Shift-drag to slide'),
       h('span', {}, 'Double-click apparatus to inspect'),
     );
 
