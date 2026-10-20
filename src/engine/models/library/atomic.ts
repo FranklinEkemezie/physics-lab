@@ -170,8 +170,8 @@ export function buildRutherfordAtom(options: AtomOptions = {}): THREE.Group {
     group.add(electron);
   }
 
-  const nucleusLabel = labelSprite('nucleus', radiusM * 0.34);
-  nucleusLabel.position.set(0, -radiusM * 0.26, 0);
+  const nucleusLabel = labelSprite('nucleus', radiusM * 0.3);
+  nucleusLabel.position.set(0, -radiusM * 0.42, 0);
   group.add(nucleusLabel);
 
   group.userData.model = { id: 'atom-rutherford', label: 'Rutherford atom' };
